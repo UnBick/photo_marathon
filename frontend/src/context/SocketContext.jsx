@@ -1,20 +1,15 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from "socket.io-client";
 // ...existing code...
-const socket = io(import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com", {
-  transports: ["websocket", "polling"],
-  // ...other options
-});
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com";
+const socketRef = useRef(null);
   const { user, token, isAuthenticated } = useAuth();
-  const socketRef = useRef(null);
 
   useEffect(() => {
     if (isAuthenticated && token && !socketRef.current) {
-      // Initialize socket connection
-      socketRef.current = io('/', {
-        auth: {
-          token
-        },
+      // Initialize socket connection to backend
+      socketRef.current = io(SOCKET_URL, {
+        auth: { token },
         transports: ['websocket', 'polling']
       });
 
@@ -34,7 +29,6 @@ const socket = io(import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onr
       // Game-specific event handlers
       socketRef.current.on('game_started', (data) => {
         console.log('Game started:', data);
-        // Emit custom event for components to listen to
         window.dispatchEvent(new CustomEvent('game_started', { detail: data }));
       });
 
@@ -83,7 +77,7 @@ const socket = io(import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onr
 
       // Team-specific events
       if (user) {
-  socketRef.current.emit('join-team', user._id);
+        socketRef.current.emit('join-team', user._id);
       }
     }
 
@@ -203,7 +197,7 @@ const socket = io(import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onr
       {children}
     </SocketContext.Provider>
   );
-};
+// ...existing code...
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
