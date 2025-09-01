@@ -2,8 +2,12 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from "socket.io-client";
 // ...existing code...
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com";
-const socketRef = useRef(null);
+
+const SocketContext = createContext();
+
+export const SocketProvider = ({ children }) => {
   const { user, token, isAuthenticated } = useAuth();
+  const socketRef = useRef(null);
 
   useEffect(() => {
     if (isAuthenticated && token && !socketRef.current) {
@@ -192,12 +196,13 @@ const socketRef = useRef(null);
     emitSubmissionEvent
   };
 
+
   return (
     <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   );
-// ...existing code...
+};
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
