@@ -1,3 +1,22 @@
+<<<<<<< HEAD
+=======
+// Get the final level and its clue for teams
+const getFinalLevelClue = async (req, res) => {
+  try {
+    const finalLevel = await Level.findOne({ isFinal: true, isActive: true }).select('title finalClue description');
+    if (!finalLevel) {
+      return res.status(404).json({ message: 'Final level not found' });
+    }
+    res.json({
+      title: finalLevel.title,
+      finalClue: finalLevel.finalClue,
+      description: finalLevel.description
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching final level clue', error: error.message });
+  }
+};
+>>>>>>> f0e38999 (Update: latest changes and fixes)
 const Level = require('../models/Level');
 const Team = require('../models/Team');
 const Submission = require('../models/Submission');
@@ -130,7 +149,12 @@ const createLevel = async (req, res) => {
       hints,
       timeLimit,
       maxAttempts,
+<<<<<<< HEAD
       points
+=======
+      points,
+      finalClue
+>>>>>>> f0e38999 (Update: latest changes and fixes)
     } = req.body;
 
     if (!req.file) {
@@ -146,6 +170,7 @@ const createLevel = async (req, res) => {
     }
 
     const level = new Level({
+<<<<<<< HEAD
       title,
       description,
       photoUrl: req.file.path,
@@ -160,6 +185,23 @@ const createLevel = async (req, res) => {
       points: points || 100,
       phash: req.file.phash,
       createdBy: req.user.id
+=======
+  title,
+  description,
+  photoUrl: req.file.path,
+  thumbnailUrl: req.file.path.replace('.jpg', '_thumb.jpg'),
+  isFinal: isFinal || false,
+  order: order || 0,
+  difficulty: difficulty || 'medium',
+  location,
+  hints: hints || [],
+  timeLimit: timeLimit || null,
+  maxAttempts: maxAttempts || 3,
+  points: points || 100,
+  phash: req.file.phash,
+  createdBy: req.user.id,
+  finalClue: finalClue || ''
+>>>>>>> f0e38999 (Update: latest changes and fixes)
     });
 
     await level.save();
@@ -195,6 +237,13 @@ const updateLevel = async (req, res) => {
     }
 
     const updates = req.body;
+<<<<<<< HEAD
+=======
+    // Only allow finalClue to be updated for final level
+    if (level.isFinal && typeof req.body.finalClue === 'string') {
+      updates.finalClue = req.body.finalClue;
+    }
+>>>>>>> f0e38999 (Update: latest changes and fixes)
     
     // Handle photo update if new photo is uploaded
     if (req.file) {
@@ -660,5 +709,10 @@ module.exports = {
   getLevelSpecificStats,
   getDifficultyAnalysis,
   testLevelImage,
+<<<<<<< HEAD
   getLevelVerificationData
+=======
+  getLevelVerificationData,
+  getFinalLevelClue
+>>>>>>> f0e38999 (Update: latest changes and fixes)
 };

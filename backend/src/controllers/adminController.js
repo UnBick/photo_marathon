@@ -636,7 +636,11 @@ const createLevel = async (req, res) => {
   try {
     const {
       title, description, isFinal, order, difficulty, location,
+<<<<<<< HEAD
       hints, timeLimit, maxAttempts, points
+=======
+      hints, timeLimit, maxAttempts, points, finalClue
+>>>>>>> f0e38999 (Update: latest changes and fixes)
     } = req.body;
 
     if (!title || order == null) {
@@ -665,6 +669,7 @@ const createLevel = async (req, res) => {
     const thumbnailUrl = `/uploads/thumbnails/thumb_${fileName}`;
 
     const level = await Level.create({
+<<<<<<< HEAD
       title,
       description,
       photoUrl,
@@ -679,6 +684,23 @@ const createLevel = async (req, res) => {
       points: points != null ? Number(points) : 100,
       phash: req.file.phash,
       createdBy: req.user.id
+=======
+  title,
+  description,
+  photoUrl,
+  thumbnailUrl,
+  isFinal: isFinalBool,
+  order: Number(order) || 0,
+  difficulty: difficulty || 'medium',
+  location,
+  hints: Array.isArray(hints) ? hints : (hints ? [hints] : []),
+  timeLimit: timeLimit ? Number(timeLimit) : null,
+  maxAttempts: maxAttempts != null ? Number(maxAttempts) : 3,
+  points: points != null ? Number(points) : 100,
+  phash: req.file.phash,
+  createdBy: req.user.id,
+  finalClue: finalClue || ''
+>>>>>>> f0e38999 (Update: latest changes and fixes)
     });
 
     // FIX: Use bulk operation for better performance
@@ -715,6 +737,13 @@ const updateLevel = async (req, res) => {
     }
 
     const updates = req.body;
+<<<<<<< HEAD
+=======
+    // Only allow finalClue to be updated for final level
+    if (level.isFinal && typeof req.body.finalClue === 'string') {
+      updates.finalClue = req.body.finalClue;
+    }
+>>>>>>> f0e38999 (Update: latest changes and fixes)
     
     // Handle photo update if new photo is uploaded
     if (req.file) {

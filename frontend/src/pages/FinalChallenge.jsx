@@ -19,6 +19,25 @@ const FinalChallenge = () => {
   const [uploadError, setUploadError] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showAlert, setShowAlert] = useState("");
+<<<<<<< HEAD
+=======
+  const [finalClue, setFinalClue] = useState("");
+  useEffect(() => {
+    // Fetch the final level clue from backend
+    async function fetchFinalClue() {
+      try {
+        const res = await fetch('/api/levels/final');
+        if (res.ok) {
+          const data = await res.json();
+          setFinalClue(data.finalClue || "");
+        }
+      } catch (err) {
+        setFinalClue("");
+      }
+    }
+    fetchFinalClue();
+  }, []);
+>>>>>>> f0e38999 (Update: latest changes and fixes)
 
   useEffect(() => {
     // Check if final challenge is unlocked
@@ -125,14 +144,31 @@ const FinalChallenge = () => {
           </svg>
           Back to Dashboard
         </button>
+<<<<<<< HEAD
         
+=======
+
+        {/* Highlighted Clue Box */}
+        <div className="max-w-2xl mx-auto mb-6">
+          <div className="bg-gradient-to-r from-yellow-200 via-yellow-100 to-yellow-50 border-2 border-yellow-400 rounded-xl shadow-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-yellow-900 mb-2">Final Challenge Clue</h2>
+            <p className="text-lg text-yellow-800 font-semibold">
+              {finalClue ? finalClue : "This is it! The ultimate test of your photography skills. Submit your best photo to complete the Photo Marathon."}
+            </p>
+          </div>
+        </div>
+
+>>>>>>> f0e38999 (Update: latest changes and fixes)
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             🏁 Final Challenge
           </h1>
+<<<<<<< HEAD
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             This is it! The ultimate test of your photography skills. Submit your best photo to complete the Photo Marathon.
           </p>
+=======
+>>>>>>> f0e38999 (Update: latest changes and fixes)
         </div>
       </div>
 
@@ -149,6 +185,7 @@ const FinalChallenge = () => {
               </div>
               <h2 className="text-2xl font-bold text-purple-900 mb-2">The Ultimate Challenge</h2>
               <p className="text-purple-700">
+<<<<<<< HEAD
                 Show us what you've learned throughout this journey
               </p>
             </div>
@@ -180,6 +217,12 @@ const FinalChallenge = () => {
                 </p>
               </div>
             </div>
+=======
+                {finalClue ? finalClue : "Show us what you've learned throughout this journey"}
+              </p>
+            </div>
+            {/* Optionally, you can add more dynamic fields for judging criteria and prize if you want them editable too */}
+>>>>>>> f0e38999 (Update: latest changes and fixes)
           </div>
         </div>
 

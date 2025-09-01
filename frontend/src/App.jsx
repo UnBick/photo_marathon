@@ -88,11 +88,15 @@ const App = () => {
                   </ProtectedRoute>
                 } />
                 
+<<<<<<< HEAD
                 <Route path="/leaderboard" element={
                   <ProtectedRoute>
                       <LeaderboardPage />
                   </ProtectedRoute>
                 } />
+=======
+
+>>>>>>> f0e38999 (Update: latest changes and fixes)
                 
                 <Route path="/progress" element={
                   <ProtectedRoute>
@@ -137,6 +141,14 @@ const App = () => {
                   </ProtectedRoute>
                 } />
                 
+<<<<<<< HEAD
+=======
+               <Route path="/admin/leaderboard" element={
+                  <ProtectedRoute>
+                      <LeaderboardPage />
+                  </ProtectedRoute>
+                } />
+>>>>>>> f0e38999 (Update: latest changes and fixes)
                 {/* 404 Route */}
                 <Route path="*" element={
                   <div className="min-h-screen flex items-center justify-center bg-gray-50">

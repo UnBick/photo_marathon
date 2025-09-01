@@ -568,7 +568,11 @@ const QuickActions = ({ pendingReviews }) => (
       <QuickActionCard to="/admin/levels" icon={<Camera />} title="Manage Levels" desc="Create, edit, and organize challenges" />
       <QuickActionCard to="/admin/teams" icon={<Users />} title="Manage Teams" desc="View progress & registrations" />
       <QuickActionCard to="/admin/submissions" icon={<FileText />} title="Review Submissions" desc={`Approve/reject photos ${pendingReviews > 0 ? `(${pendingReviews} pending)` : ""}`} />
+<<<<<<< HEAD
   <QuickActionCard to="/leaderboard" icon={<BarChart3 />} title="leaderboard" desc="View statistics & insights" />
+=======
+  <QuickActionCard to="/admin/leaderboard" icon={<BarChart3 />} title="leaderboard" desc="View statistics & insights" />
+>>>>>>> f0e38999 (Update: latest changes and fixes)
     </div>
   </div>
 );

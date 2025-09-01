@@ -23,6 +23,15 @@ const levelSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+<<<<<<< HEAD
+=======
+  finalClue: {
+    type: String,
+    trim: true,
+    maxlength: [1000, 'Final clue cannot exceed 1000 characters'],
+    default: ''
+  },
+>>>>>>> f0e38999 (Update: latest changes and fixes)
   order: {
     type: Number,
     required: function() { return !this.isFinal; },
