@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from "socket.io-client";
-// ...existing code...
+import { useAuth } from '../context/AuthContext';
+
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com";
 
 const SocketContext = createContext();
