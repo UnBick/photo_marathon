@@ -4,17 +4,12 @@ import { useGame } from '../context/GameContext';
 import { formatLeaderboardDate, formatDate, formatGameTime, formatRelativeTime } from '../utils/formatDate';
 
 
-<<<<<<< HEAD
-const Leaderboard = ({ compact = false, maxItems = 10, autoRefreshInterval = 30 }) => {
-  const { leaderboard, loadLeaderboard } = useGame();
-=======
 const Leaderboard = (props) => {
   const { compact = false, maxItems = 10, autoRefreshInterval = 30, leaderboard: leaderboardProp } = props;
   let contextLeaderboard = [];
   let loadLeaderboard = undefined;
   try { ({ leaderboard: contextLeaderboard, loadLeaderboard } = useGame()); } catch (e) {}
   const leaderboard = typeof leaderboardProp !== 'undefined' ? leaderboardProp : contextLeaderboard;
->>>>>>> f0e38999 (Update: latest changes and fixes)
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState('score'); // score, time, completed
   const [sortOrder, setSortOrder] = useState('desc'); // asc, desc

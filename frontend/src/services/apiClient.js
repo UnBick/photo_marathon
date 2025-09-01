@@ -1,14 +1,9 @@
 import axios from 'axios';
 
 // Create axios instance with base configuration
-<<<<<<< HEAD
-const apiClient = axios.create({
-  baseURL: '/api',
-=======
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
->>>>>>> f0e38999 (Update: latest changes and fixes)
   timeout: 30000
   // Do NOT set a global Content-Type header here!
 });

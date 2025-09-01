@@ -1,17 +1,10 @@
-<<<<<<< HEAD
-=======
-
->>>>>>> f0e38999 (Update: latest changes and fixes)
 const express = require('express');
 const router = express.Router();
 const levelController = require('../controllers/levelController');
 const { authenticateToken, authenticateAdmin } = require('../middleware/authMiddleware');
 const { upload, processImage } = require('../middleware/uploadMiddleware');
-<<<<<<< HEAD
-=======
 // Public route for final level clue
 router.get('/final', levelController.getFinalLevelClue);
->>>>>>> f0e38999 (Update: latest changes and fixes)
 
 // Public level information (no auth required)
 router.get('/public', levelController.getPublicLevels);

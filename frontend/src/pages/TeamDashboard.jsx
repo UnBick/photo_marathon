@@ -3,10 +3,6 @@ import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import PhotoCard from '../components/PhotoCard';
-<<<<<<< HEAD
-import Leaderboard from '../components/Leaderboard';
-=======
->>>>>>> f0e38999 (Update: latest changes and fixes)
 import { formatGameTime } from '../utils/formatDate';
 
 const TeamDashboard = () => {
@@ -178,11 +174,7 @@ const TeamDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-<<<<<<< HEAD
-        {/* Enhanced Header */}
-=======
   {/* Enhanced Header - Leaderboard removed for teams */}
->>>>>>> f0e38999 (Update: latest changes and fixes)
         <div className="mb-12">
           <div className="bg-white rounded-2xl shadow-lg border border-white/20 backdrop-blur-sm p-8">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0">
@@ -364,16 +356,7 @@ const TeamDashboard = () => {
                 <p className="text-green-100 text-xl leading-relaxed mb-6">
                   You have conquered the Master Level. Head over to the leaderboard to see how you rank among other teams!
                 </p>
-<<<<<<< HEAD
-                <Link
-                  to="/leaderboard"
-                  className="inline-block bg-white text-purple-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-                >
-                  <span className="relative z-10">View Leaderboard</span>
-                </Link>
-=======
                 {/* Leaderboard link removed for teams. Only admin can view leaderboard. */}
->>>>>>> f0e38999 (Update: latest changes and fixes)
               </div>
             </div>
           </div>

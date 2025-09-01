@@ -16,20 +16,6 @@ const calculateRanking = async () => {
     // Get all submissions for score calculation
     const submissions = await Submission.find({
       status: { $in: ['auto_approved', 'approved'] }
-<<<<<<< HEAD
-    }).select('teamId similarityScore levelId');
-
-    // Calculate scores and metrics for each team
-    const teamRankings = teams.map(team => {
-      const teamSubmissions = submissions.filter(s => 
-        s.teamId.toString() === team._id.toString()
-      );
-  // Count final level in completedLevels and totalLevels
-  const hasFinal = typeof team.finalSubmitted === 'boolean';
-  const completedLevels = team.completed.length + (team.finalSubmitted ? 1 : 0);
-  const totalLevels = (Array.isArray(team.assignedLevels) ? team.assignedLevels.length : 0) + (hasFinal ? 1 : 0);
-  const finalSubmitted = team.finalSubmitted;
-=======
     }).select('teamId similarityScore levelId createdAt');
 
     // Calculate scores and metrics for each team
@@ -42,7 +28,6 @@ const calculateRanking = async () => {
       const completedLevels = completedLevelIds.length + (team.finalSubmitted ? 1 : 0);
       const totalLevels = (Array.isArray(team.assignedLevels) ? team.assignedLevels.length : 0) + 1; // Always add final
       const finalSubmitted = team.finalSubmitted;
->>>>>>> f0e38999 (Update: latest changes and fixes)
       const totalTime = team.totalTime || 0;
       const isWinner = team.isWinner || false;
       const lastActivity = team.lastActive || team.updatedAt || team.createdAt || null;
@@ -57,20 +42,11 @@ const calculateRanking = async () => {
       const timeBonus = Math.max(0, 1000 - Math.floor(totalTime / 60)); // Time bonus (max 1000, decreases with time)
       const totalPoints = levelPoints + finalPoints + timeBonus;
 
-<<<<<<< HEAD
-      // Find last submission time (last completedAt in completed array)
-      let lastSubmissionTime = null;
-      if (team.completed && team.completed.length > 0) {
-        // Find the latest completedAt
-        lastSubmissionTime = team.completed.reduce((latest, c) => {
-          const t = new Date(c.completedAt).getTime();
-=======
       // Find last approved submission time
       let lastSubmissionTime = null;
       if (teamSubmissions.length > 0) {
         lastSubmissionTime = teamSubmissions.reduce((latest, s) => {
           const t = new Date(s.createdAt).getTime();
->>>>>>> f0e38999 (Update: latest changes and fixes)
           return t > latest ? t : latest;
         }, 0);
       }

@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import React from 'react';
-import { useGame } from '../context/GameContext';
-import Leaderboard from '../components/Leaderboard';
-
-const LeaderboardPage = () => {
-  const { leaderboard, isLoading } = useGame();
-=======
 import React, { useEffect, useState } from 'react';
 import Leaderboard from '../components/Leaderboard';
 import { adminService } from '../services/adminService';
@@ -28,7 +20,6 @@ const LeaderboardPage = () => {
     };
     fetchLeaderboard();
   }, []);
->>>>>>> f0e38999 (Update: latest changes and fixes)
 
   if (isLoading) {
     return (
@@ -47,11 +38,7 @@ const LeaderboardPage = () => {
         </p>
       </div>
 
-<<<<<<< HEAD
       <Leaderboard />
-=======
-      <Leaderboard leaderboard={leaderboard} />
->>>>>>> f0e38999 (Update: latest changes and fixes)
     </div>
   );
 };

@@ -19,8 +19,6 @@ const FinalChallenge = () => {
   const [uploadError, setUploadError] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showAlert, setShowAlert] = useState("");
-<<<<<<< HEAD
-=======
   const [finalClue, setFinalClue] = useState("");
   useEffect(() => {
     // Fetch the final level clue from backend
@@ -37,7 +35,6 @@ const FinalChallenge = () => {
     }
     fetchFinalClue();
   }, []);
->>>>>>> f0e38999 (Update: latest changes and fixes)
 
   useEffect(() => {
     // Check if final challenge is unlocked
@@ -144,9 +141,6 @@ const FinalChallenge = () => {
           </svg>
           Back to Dashboard
         </button>
-<<<<<<< HEAD
-        
-=======
 
         {/* Highlighted Clue Box */}
         <div className="max-w-2xl mx-auto mb-6">
@@ -158,17 +152,10 @@ const FinalChallenge = () => {
           </div>
         </div>
 
->>>>>>> f0e38999 (Update: latest changes and fixes)
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             🏁 Final Challenge
           </h1>
-<<<<<<< HEAD
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            This is it! The ultimate test of your photography skills. Submit your best photo to complete the Photo Marathon.
-          </p>
-=======
->>>>>>> f0e38999 (Update: latest changes and fixes)
         </div>
       </div>
 
@@ -185,44 +172,10 @@ const FinalChallenge = () => {
               </div>
               <h2 className="text-2xl font-bold text-purple-900 mb-2">The Ultimate Challenge</h2>
               <p className="text-purple-700">
-<<<<<<< HEAD
-                Show us what you've learned throughout this journey
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg p-4 border border-purple-200">
-                <h3 className="font-semibold text-purple-900 mb-2">Challenge Theme</h3>
-                <p className="text-gray-700">
-                  Create a photo that represents the spirit of adventure, creativity, and the joy of discovery. 
-                  This is your chance to showcase your unique perspective and photographic vision.
-                </p>
-              </div>
-              
-              <div className="bg-white rounded-lg p-4 border border-purple-200">
-                <h3 className="font-semibold text-purple-900 mb-2">Judging Criteria</h3>
-                <ul className="text-gray-700 space-y-1">
-                  <li>• Creativity and originality</li>
-                  <li>• Technical quality and composition</li>
-                  <li>• Emotional impact and storytelling</li>
-                  <li>• Adherence to the theme</li>
-                </ul>
-              </div>
-              
-              <div className="bg-white rounded-lg p-4 border border-purple-200">
-                <h3 className="font-semibold text-purple-900 mb-2">Prize</h3>
-                <p className="text-gray-700">
-                  The winning team will be crowned Photo Marathon Champions and receive special recognition 
-                  for their outstanding achievement!
-                </p>
-              </div>
-            </div>
-=======
                 {finalClue ? finalClue : "Show us what you've learned throughout this journey"}
               </p>
             </div>
             {/* Optionally, you can add more dynamic fields for judging criteria and prize if you want them editable too */}
->>>>>>> f0e38999 (Update: latest changes and fixes)
           </div>
         </div>
 
