@@ -2,6 +2,9 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL;
+// Use API_URL for all fetch/axios requests
+
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
   timeout: 30000
