@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
-import { useAuth } from './AuthContext';
-
-const SocketContext = createContext();
-
-export const SocketProvider = ({ children }) => {
+import { io } from "socket.io-client";
+// ...existing code...
+const socket = io(import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com", {
+  transports: ["websocket", "polling"],
+  // ...other options
+});
   const { user, token, isAuthenticated } = useAuth();
   const socketRef = useRef(null);
 
