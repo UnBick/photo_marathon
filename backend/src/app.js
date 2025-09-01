@@ -43,7 +43,7 @@ app.use(helmet({
 // CORS configuration
 app.use(cors({
   origin: [
-    'https://photo-marathon-mp8p.vercel.app/', // Vercel frontend
+    'https://photo-marathon-mp8p.vercel.app', // Vercel frontend
     'http://localhost:3000' // local dev
   ],
   credentials: true,
