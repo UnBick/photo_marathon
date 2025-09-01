@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import apiClient from '../services/apiClient';
 
 const ManageTeams = () => {
   const [teams, setTeams] = useState([]);
@@ -13,14 +14,12 @@ const ManageTeams = () => {
     const fetchTeams = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/admin/teams', {
+        const res = await apiClient.get('/admin/teams', {
           headers: {
-            'Content-Type': 'application/json',
             Authorization: `Bearer ${user?.token}`
           }
         });
-        const data = await res.json();
-        setTeams(data.teams || []);
+        setTeams(res.data.teams || []);
       } catch (err) {
         setError('Failed to load teams');
       } finally {
@@ -34,10 +33,8 @@ const ManageTeams = () => {
     if (!window.confirm('Are you sure you want to delete this team?')) return;
     setDeleting(true);
     try {
-      await fetch(`/api/admin/teams/${teamId}`, {
-        method: 'DELETE',
+      await apiClient.delete(`/admin/teams/${teamId}`, {
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${user?.token}`
         }
       });

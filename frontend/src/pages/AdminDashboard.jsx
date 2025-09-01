@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Activity,
 } from "lucide-react";
+import apiClient from '../services/apiClient';
 
 let socket;
 
@@ -79,15 +80,13 @@ const AdminDashboard = () => {
       if (!user?.token) {
         throw new Error('No access token found');
       }
-      const res = await fetch("/api/admin/dashboard", {
-        credentials: "include",
+      const res = await apiClient.get('/admin/dashboard', {
+        withCredentials: true,
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${user.token}`
         },
       });
-      const data = await res.json();
-      mapDashboardData(data);
+      mapDashboardData(res.data);
       setLoading(false);
     } catch (err) {
       console.error("Failed to fetch dashboard:", err);
@@ -99,21 +98,14 @@ const AdminDashboard = () => {
     setResetGameLoading(true);
     setGameControlError("");
     try {
-      const res = await fetch(`/api/admin/game/reset`, {
-        method: "POST",
-        credentials: "include",
+      await apiClient.post('/admin/game/reset', {}, {
+        withCredentials: true,
         headers: {
-          "Content-Type": "application/json",
           ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
         },
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setGameControlError(data.message || "Failed to reset game.");
-      } else {
-        setGameControlError("");
-        await fetchDashboard();
-      }
+      setGameControlError("");
+      await fetchDashboard();
     } catch (err) {
       setGameControlError(`Failed to reset game: ${err.message}`);
       console.error("Failed to reset game:", err);
@@ -141,15 +133,13 @@ const AdminDashboard = () => {
         if (!user?.token) {
           throw new Error('No access token found');
         }
-        const res = await fetch("/api/admin/dashboard", {
-          credentials: "include",
+        const res = await apiClient.get('/admin/dashboard', {
+          withCredentials: true,
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${user.token}`
           },
         });
-        const data = await res.json();
-        mapDashboardData(data);
+        mapDashboardData(res.data);
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch dashboard:", err);
@@ -159,15 +149,13 @@ const AdminDashboard = () => {
 
     const fetchGameState = async () => {
       try {
-        const res = await fetch("/api/admin/game-state", {
-          credentials: "include",
+        const res = await apiClient.get('/admin/game-state', {
+          withCredentials: true,
           headers: {
-            "Content-Type": "application/json",
             ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
           },
         });
-        const data = await res.json();
-        setHasGameState(!!data && !!data._id);
+        setHasGameState(!!res.data && !!res.data._id);
       } catch (err) {
         setHasGameState(false);
       }
@@ -229,21 +217,14 @@ const AdminDashboard = () => {
     setResetGameLoading(true);
     setGameControlError("");
     try {
-      const res = await fetch(`/api/admin/game/reset`, {
-        method: "POST",
-        credentials: "include",
+      await apiClient.post('/admin/game/reset', {}, {
+        withCredentials: true,
         headers: {
-          "Content-Type": "application/json",
           ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
         },
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setGameControlError(data.message || "Failed to reset game.");
-      } else {
-        setGameControlError("");
-        await fetchDashboard();
-      }
+      setGameControlError("");
+      await fetchDashboard();
     } catch (err) {
       setGameControlError(`Failed to reset game: ${err.message}`);
       console.error("Failed to reset game:", err);
@@ -254,21 +235,14 @@ const AdminDashboard = () => {
     setGameControlLoading(action);
     setGameControlError("");
     try {
-      const res = await fetch(`/api/admin/game/${action}`, {
-        method: "POST",
-        credentials: "include",
+      await apiClient.post(`/admin/game/${action}`, {}, {
+        withCredentials: true,
         headers: {
-          "Content-Type": "application/json",
           ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
         },
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setGameControlError(data.message || `Failed to ${action} game.`);
-      } else {
-        setGameControlError("");
-        await fetchDashboard();
-      }
+      setGameControlError("");
+      await fetchDashboard();
     } catch (err) {
       setGameControlError(`Failed to ${action} game: ${err.message}`);
       console.error(`Failed to ${action} game:`, err);
@@ -407,21 +381,14 @@ const AdminDashboard = () => {
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch('/api/admin/game/init', {
-                        method: 'POST',
-                        credentials: 'include',
+                      await apiClient.post('/admin/game/init', {}, {
+                        withCredentials: true,
                         headers: {
-                          'Content-Type': 'application/json',
                           ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
                         },
                       });
-                      const data = await res.json();
-                      if (res.ok) {
-                        setHasGameState(true);
-                        await fetchDashboard();
-                      } else {
-                        setGameControlError(data.message || 'Failed to initialize game state.');
-                      }
+                      setHasGameState(true);
+                      await fetchDashboard();
                     } catch (err) {
                       setGameControlError('Failed to initialize game state.');
                     }

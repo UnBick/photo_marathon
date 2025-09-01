@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiClient from '../services/apiClient';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
@@ -24,11 +25,8 @@ const FinalChallenge = () => {
     // Fetch the final level clue from backend
     async function fetchFinalClue() {
       try {
-        const res = await fetch('/api/levels/final');
-        if (res.ok) {
-          const data = await res.json();
-          setFinalClue(data.finalClue || "");
-        }
+        const res = await apiClient.get('/levels/final');
+        setFinalClue(res.data.finalClue || "");
       } catch (err) {
         setFinalClue("");
       }

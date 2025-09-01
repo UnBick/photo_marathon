@@ -1,9 +1,7 @@
 import axios from 'axios';
 
-// Create axios instance with base configuration
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-const API_URL = import.meta.env.VITE_API_URL;
-// Use API_URL for all fetch/axios requests
+// Use VITE_API_BASE_URL for all API requests, fallback to '/api' if not set
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
