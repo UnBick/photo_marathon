@@ -1,4 +1,15 @@
-const express = require('express');
+// Security middleware - applied after CORS
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "ws:", "wss:"]
+    }
+  }
+}));const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
@@ -8,6 +19,7 @@ const { Server } = require('socket.io');
 
 // Import middleware
 const { handleUploadErrors } = require('./middleware/uploadMiddleware');
+const { corsMiddleware, handlePreflight, allowedOrigins } = require('./middleware/corsMiddleware');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -40,26 +52,9 @@ const io = new Server(server, {
   transports: ['websocket', 'polling']
 });
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "ws:", "wss:"]
-    }
-  }
-}));
-
-// CORS configuration for Express routes
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+// Apply CORS middleware BEFORE any routes
+app.use(handlePreflight);
+app.use(corsMiddleware);
 
 // Rate limiting
 const limiter = rateLimit({
