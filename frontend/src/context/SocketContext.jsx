@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from "socket.io-client";
 import { useAuth } from '../context/AuthContext';
 
-const SOCKET_URL = "https://photo-marathon.onrender.com";
+// Use environment variable with fallback
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com";
 
 const SocketContext = createContext();
 
@@ -14,7 +15,6 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     console.log('🔍 SOCKET_URL being used:', SOCKET_URL);
     console.log('🔍 Environment variable VITE_SOCKET_URL:', import.meta.env.VITE_SOCKET_URL);
-    console.log('🔍 All environment variables:', import.meta.env);
   }, []);
 
   useEffect(() => {
@@ -26,13 +26,22 @@ export const SocketProvider = ({ children }) => {
         auth: { token },
         transports: ['websocket', 'polling'],
         timeout: 20000,
-        forceNew: true
+        forceNew: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
       });
 
       // Connection event handlers
       socketRef.current.on('connect', () => {
         console.log('✅ Socket connected:', socketRef.current.id);
         console.log('🔗 Connected to:', SOCKET_URL);
+        
+        // Join team room automatically after successful connection
+        if (user?.teamId) {
+          socketRef.current.emit('join-team', user.teamId);
+          console.log('🏠 Auto-joining team room:', user.teamId);
+        }
       });
 
       socketRef.current.on('disconnect', (reason) => {
@@ -42,6 +51,20 @@ export const SocketProvider = ({ children }) => {
       socketRef.current.on('connect_error', (error) => {
         console.error('🚨 Socket connection error:', error);
         console.error('🚨 Tried to connect to:', SOCKET_URL);
+        console.error('🚨 Error details:', error.message);
+      });
+
+      socketRef.current.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
+      });
+
+      socketRef.current.on('reconnect_error', (error) => {
+        console.error('🔄❌ Socket reconnection failed:', error);
+      });
+
+      // Team room events
+      socketRef.current.on('joined-team', (data) => {
+        console.log('🏠 Successfully joined team room:', data);
       });
 
       // Game-specific event handlers
@@ -92,11 +115,6 @@ export const SocketProvider = ({ children }) => {
         console.log('Leaderboard updated:', data);
         window.dispatchEvent(new CustomEvent('leaderboard_updated', { detail: data }));
       });
-
-      // Team-specific events
-      if (user) {
-        socketRef.current.emit('join-team', user._id);
-      }
     }
 
     // Cleanup function
@@ -107,17 +125,7 @@ export const SocketProvider = ({ children }) => {
         socketRef.current = null;
       }
     };
-  }, [isAuthenticated, token, user]);
-
-  // Join team room when user changes
-  useEffect(() => {
-    if (socketRef.current && user && user._id) {
-      socketRef.current.emit('join-team', user._id);
-    } else {
-      // Do not emit if user._id is missing
-      console.warn('Socket: Not joining team room, user._id is missing:', user);
-    }
-  }, [user]);
+  }, [isAuthenticated, token, user?.teamId]);
 
   // Socket utility functions
   const emit = (event, data) => {
@@ -140,6 +148,7 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
+  // Fixed room joining functions to match server naming convention
   const joinRoom = (roomName) => {
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('join_room', { room: roomName });
@@ -152,32 +161,37 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
-  // Game-specific socket functions
+  // Game-specific socket functions - Fixed naming to match server
   const joinGame = (gameId) => {
-    joinRoom(`game_${gameId}`);
+    joinRoom(`game-${gameId}`); // Using dash to match server
   };
 
   const leaveGame = (gameId) => {
-    leaveRoom(`game_${gameId}`);
+    leaveRoom(`game-${gameId}`); // Using dash to match server
   };
 
   const joinTeamRoom = (teamId) => {
-    joinRoom(`team_${teamId}`);
+    if (socketRef.current && socketRef.current.connected) {
+      socketRef.current.emit('join-team', teamId); // Use server's join-team event
+    }
   };
 
   const leaveTeamRoom = (teamId) => {
-    leaveRoom(`team_${teamId}`);
+    // Team rooms are managed by join-team event, no explicit leave needed
+    console.log('Team room leave requested for:', teamId);
   };
 
   const joinAdminRoom = () => {
     if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-      joinRoom('admin');
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('join-admin');
+      }
     }
   };
 
   const leaveAdminRoom = () => {
     if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-      leaveRoom('admin');
+      leaveRoom('admin-room');
     }
   };
 
