@@ -31,13 +31,10 @@ const adminRoutes = require('./routes/adminRoutes');
 const app = express();
 const server = createServer(app);
 
-// Define allowed origins
-const allowedOrigins = [
-  'https://photo-marathon-wbbr.vercel.app',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  process.env.FRONTEND_URL
-].filter(Boolean); // Remove any undefined values
+// Define allowed origins alredy declared in corsMiddleware.js
+// const allowedOrigins = [
+//   'https://photo-marathon-wbbr.vercel.app',
+
 
 console.log('🔗 Allowed CORS origins:', allowedOrigins);
 
