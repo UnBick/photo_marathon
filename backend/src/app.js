@@ -23,7 +23,7 @@ const server = createServer(app);
 
 console.log('🔗 Allowed CORS origins:', allowedOrigins);
 
-// Create Socket.IO server with proper CORS and handshake authentication
+// Enhanced Socket.IO server configuration with better authentication
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -34,15 +34,46 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
   allowRequest: (req, callback) => {
     try {
-      // Get token from query params or authorization header
-      const token = req._query?.token || 
-                   req.headers?.authorization?.split(" ")[1] ||
-                   req.handshake?.auth?.token;
+      console.log('🔍 Socket handshake attempt from:', req.headers.origin);
+      console.log('🔍 Available auth sources:', {
+        query: !!req._query?.token,
+        header: !!req.headers?.authorization,
+        handshake: !!req.handshake?.auth?.token
+      });
+      
+      // Multiple ways to get the token for better compatibility
+      let token = null;
+      
+      // Try query parameter first (most reliable for Socket.IO)
+      if (req._query?.token) {
+        token = req._query.token;
+        console.log('📱 Token found in query params');
+      }
+      // Try authorization header
+      else if (req.headers?.authorization) {
+        const authHeader = req.headers.authorization;
+        if (authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7);
+          console.log('📱 Token found in authorization header');
+        } else {
+          token = authHeader; // In case it's passed without "Bearer " prefix
+          console.log('📱 Token found in authorization header (no Bearer prefix)');
+        }
+      }
+      // Try handshake auth
+      else if (req.handshake?.auth?.token) {
+        token = req.handshake.auth.token;
+        console.log('📱 Token found in handshake auth');
+      }
       
       if (!token) {
         console.log('🚫 Socket connection rejected: No token provided');
+        console.log('🔍 Available headers:', Object.keys(req.headers || {}));
+        console.log('🔍 Query params:', req._query);
         return callback("No authentication token provided", false);
       }
+      
+      console.log('🔑 Attempting to verify token...');
       
       // Verify JWT token at handshake level
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -50,16 +81,22 @@ const io = new Server(server, {
       // Attach user info to request for later use
       req.user = decoded;
       
-      console.log(`🔐 Socket handshake authenticated for user: ${decoded.id || decoded.userId}`);
+      console.log(`✅ Socket handshake authenticated for user: ${decoded.id || decoded.userId || decoded._id}`);
       callback(null, true);
     } catch (err) {
       console.log('🚫 Socket connection rejected:', err.message);
+      console.log('🚫 Error type:', err.name);
+      console.log('🚫 Full error:', err);
       
       if (err.name === 'TokenExpiredError') {
         return callback("Authentication token has expired", false);
+      } else if (err.name === 'JsonWebTokenError') {
+        return callback("Invalid authentication token", false);
+      } else if (err.name === 'NotBeforeError') {
+        return callback("Token not active", false);
       }
       
-      return callback("Invalid authentication token", false);
+      return callback("Authentication failed: " + err.message, false);
     }
   }
 });
@@ -167,29 +204,67 @@ app.use('/api/team', teamRoutes);
 app.use('/api/levels', levelRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Socket.IO connection handling
+// Enhanced connection handling with better error logging
 io.on('connection', (socket) => {
   // User info is already available from handshake authentication
   const user = socket.request.user;
-  console.log(`🔌 Client connected: ${socket.id} (User: ${user?.id || user?.userId})`);
+  const userId = user?.id || user?.userId || user?._id;
+  
+  console.log(`🔌 Client connected: ${socket.id} (User: ${userId})`);
+  console.log(`👤 User details:`, { 
+    id: userId, 
+    email: user?.email, 
+    role: user?.role,
+    teamId: user?.teamId 
+  });
   
   // Store user info on socket for easy access
   socket.user = user;
 
-  // Join team room - Using consistent naming convention (team-${id})
+  // Auto-join team room if user has a teamId
+  if (user?.teamId) {
+    socket.join(`team-${user.teamId}`);
+    console.log(`🏠 Auto-joined team room: team-${user.teamId}`);
+    socket.emit('joined-team', { 
+      teamId: user.teamId, 
+      message: 'Successfully joined team room automatically' 
+    });
+  }
+
+  // Join team room manually - Using consistent naming convention (team-${id})
   socket.on('join-team', (teamId) => {
     if (teamId) {
+      // Leave previous team rooms first
+      const rooms = Array.from(socket.rooms);
+      rooms.forEach(room => {
+        if (room.startsWith('team-') && room !== `team-${teamId}`) {
+          socket.leave(room);
+          console.log(`🚪 Left previous team room: ${room}`);
+        }
+      });
+      
       socket.join(`team-${teamId}`);
       console.log(`👥 Team ${teamId} joined room: team-${teamId}`);
-      socket.emit('joined-team', { teamId, message: 'Successfully joined team room' });
+      socket.emit('joined-team', { 
+        teamId, 
+        message: 'Successfully joined team room',
+        room: `team-${teamId}`
+      });
+    } else {
+      console.warn('⚠️ join-team called without teamId');
     }
   });
 
   // Join admin room
   socket.on('join-admin', () => {
-    socket.join('admin-room');
-    console.log('👨‍💼 Admin joined admin room');
-    socket.emit('joined-admin', { message: 'Successfully joined admin room' });
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      socket.join('admin-room');
+      console.log('👨‍💼 Admin joined admin room');
+      socket.emit('joined-admin', { message: 'Successfully joined admin room' });
+    } else {
+      console.log('🚫 Non-admin tried to join admin room');
+      socket.emit('error', { message: 'Unauthorized: Admin access required' });
+    }
   });
 
   // Join game room
@@ -198,6 +273,8 @@ io.on('connection', (socket) => {
       socket.join(data.room);
       console.log(`🎮 Socket ${socket.id} joined room: ${data.room}`);
       socket.emit('room-joined', { room: data.room });
+    } else {
+      console.warn('⚠️ join_room called without room data');
     }
   });
 
@@ -213,57 +290,138 @@ io.on('connection', (socket) => {
   // Game events - Using consistent naming convention (game-${id})
   socket.on('game_start', (data) => {
     console.log('🎯 Game start event:', data);
-    io.to(`game-${data.gameId}`).emit('game_started', data);
+    if (data?.gameId) {
+      io.to(`game-${data.gameId}`).emit('game_started', {
+        ...data,
+        timestamp: Date.now()
+      });
+    }
   });
 
   socket.on('game_pause', (data) => {
     console.log('⏸️ Game pause event:', data);
-    io.to(`game-${data.gameId}`).emit('game_paused', data);
+    if (data?.gameId) {
+      io.to(`game-${data.gameId}`).emit('game_paused', {
+        ...data,
+        timestamp: Date.now()
+      });
+    }
   });
 
   socket.on('game_resume', (data) => {
     console.log('▶️ Game resume event:', data);
-    io.to(`game-${data.gameId}`).emit('game_resumed', data);
+    if (data?.gameId) {
+      io.to(`game-${data.gameId}`).emit('game_resumed', {
+        ...data,
+        timestamp: Date.now()
+      });
+    }
   });
 
   socket.on('game_end', (data) => {
     console.log('🏁 Game end event:', data);
-    io.to(`game-${data.gameId}`).emit('game_ended', data);
+    if (data?.gameId) {
+      io.to(`game-${data.gameId}`).emit('game_ended', {
+        ...data,
+        timestamp: Date.now()
+      });
+    }
   });
 
   // Level events - Using consistent naming convention (team-${id})
   socket.on('level_complete', (data) => {
     console.log('✅ Level complete event:', data);
-    io.to(`team-${data.teamId}`).emit('level_completed', data);
+    if (data?.teamId) {
+      io.to(`team-${data.teamId}`).emit('level_completed', {
+        ...data,
+        timestamp: Date.now()
+      });
+    }
   });
 
   // Submission events - Using consistent naming convention (team-${id})
   socket.on('submission_approve', (data) => {
     console.log('👍 Submission approved:', data);
-    io.to(`team-${data.teamId}`).emit('submission_approved', data);
+    if (data?.teamId) {
+      io.to(`team-${data.teamId}`).emit('submission_approved', {
+        ...data,
+        timestamp: Date.now()
+      });
+    }
   });
 
   socket.on('submission_reject', (data) => {
     console.log('👎 Submission rejected:', data);
-    io.to(`team-${data.teamId}`).emit('submission_rejected', data);
+    if (data?.teamId) {
+      io.to(`team-${data.teamId}`).emit('submission_rejected', {
+        ...data,
+        timestamp: Date.now()
+      });
+    }
   });
 
   // Leaderboard updates
   socket.on('leaderboard_update', (data) => {
     console.log('🏆 Leaderboard update:', data);
-    io.emit('leaderboard_updated', data);
+    io.emit('leaderboard_updated', {
+      ...data,
+      timestamp: Date.now()
+    });
   });
 
   // Handle connection errors
   socket.on('error', (error) => {
-    console.error('🚨 Socket error:', error);
+    console.error('🚨 Socket error from client:', socket.id, error);
   });
 
   // Handle disconnection
   socket.on('disconnect', (reason) => {
-    console.log('❌ Client disconnected:', socket.id, 'Reason:', reason);
+    console.log('❌ Client disconnected:', socket.id, 'Reason:', reason, 'User:', userId);
+  });
+
+  // Send initial connection success message
+  socket.emit('connection-established', {
+    message: 'Successfully connected to Photo Marathon server',
+    userId: userId,
+    timestamp: Date.now()
   });
 });
+
+
+
+// Health check endpoint with memory usage
+app.get('/health', (req, res) => {
+  const memUsage = process.memoryUsage();
+  res.json({
+    success: true,
+    message: 'Photo Marathon API is running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    memory: {
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
+    }
+  });
+});
+
+// Socket.io health check
+app.get('/socket/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Socket.IO server is running',
+    connected_clients: io.engine.clientsCount,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/team', teamRoutes);
+app.use('/api/levels', levelRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Make io available to routes
 app.set('io', io);

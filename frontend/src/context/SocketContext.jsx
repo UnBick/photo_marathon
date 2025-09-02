@@ -24,12 +24,17 @@ export const SocketProvider = ({ children }) => {
       // Initialize socket connection to backend
       socketRef.current = io(SOCKET_URL, {
         auth: { token },
+        query: { token }, // Also pass token in query for compatibility
+        extraHeaders: {
+          'Authorization': `Bearer ${token}`
+        },
         transports: ['websocket', 'polling'],
         timeout: 20000,
         forceNew: true,
         reconnection: true,
         reconnectionAttempts: 5,
-        reconnectionDelay: 1000
+        reconnectionDelay: 1000,
+        autoConnect: true
       });
 
       // Connection event handlers
