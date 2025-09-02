@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from "socket.io-client";
 import { useAuth } from '../context/AuthContext';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com";
+const SOCKET_URL = "https://photo-marathon.onrender.com";
 
 const SocketContext = createContext();
 
@@ -10,25 +10,38 @@ export const SocketProvider = ({ children }) => {
   const { user, token, isAuthenticated } = useAuth();
   const socketRef = useRef(null);
 
+  // Debug logging to check what URL is being used
+  useEffect(() => {
+    console.log('🔍 SOCKET_URL being used:', SOCKET_URL);
+    console.log('🔍 Environment variable VITE_SOCKET_URL:', import.meta.env.VITE_SOCKET_URL);
+    console.log('🔍 All environment variables:', import.meta.env);
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated && token && !socketRef.current) {
+      console.log('🚀 Initializing socket connection to:', SOCKET_URL);
+      
       // Initialize socket connection to backend
       socketRef.current = io(SOCKET_URL, {
         auth: { token },
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'],
+        timeout: 20000,
+        forceNew: true
       });
 
       // Connection event handlers
       socketRef.current.on('connect', () => {
-        console.log('Socket connected:', socketRef.current.id);
+        console.log('✅ Socket connected:', socketRef.current.id);
+        console.log('🔗 Connected to:', SOCKET_URL);
       });
 
       socketRef.current.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
+        console.log('❌ Socket disconnected:', reason);
       });
 
       socketRef.current.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('🚨 Socket connection error:', error);
+        console.error('🚨 Tried to connect to:', SOCKET_URL);
       });
 
       // Game-specific event handlers
@@ -89,6 +102,7 @@ export const SocketProvider = ({ children }) => {
     // Cleanup function
     return () => {
       if (socketRef.current) {
+        console.log('🧹 Cleaning up socket connection');
         socketRef.current.disconnect();
         socketRef.current = null;
       }
@@ -109,6 +123,8 @@ export const SocketProvider = ({ children }) => {
   const emit = (event, data) => {
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit(event, data);
+    } else {
+      console.warn('Cannot emit - socket not connected:', event);
     }
   };
 
@@ -196,7 +212,6 @@ export const SocketProvider = ({ children }) => {
     emitLevelEvent,
     emitSubmissionEvent
   };
-
 
   return (
     <SocketContext.Provider value={value}>
