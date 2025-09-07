@@ -2,13 +2,8 @@
 const axios = require('axios');
 
 const testCORS = async () => {
-<<<<<<< HEAD
   const baseURL = process.env.TEST_BASE_URL || 'http://localhost:5000';
   const origin = process.env.TEST_ORIGIN || 'http://localhost:3000';
-=======
-  const baseURL = 'https://photo-marathon.onrender.com';
-  const origin = 'https://photo-marathon-wbbr.vercel.app';
->>>>>>> origin/main
 
   try {
     console.log('Testing CORS configuration...');

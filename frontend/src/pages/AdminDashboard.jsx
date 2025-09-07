@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-<<<<<<< HEAD
 import { io } from "socket.io-client";
-=======
-import io from "socket.io-client";
->>>>>>> origin/main
 import { useAuth } from "../context/AuthContext";
 import { useGame } from "../context/GameContext";
 import {
@@ -132,27 +128,6 @@ const AdminDashboard = () => {
 
   // --- SOCKET.IO + INITIAL FETCH ---
   useEffect(() => {
-<<<<<<< HEAD
-=======
-    const fetchDashboard = async () => {
-      try {
-        if (!user?.token) {
-          throw new Error('No access token found');
-        }
-        const res = await apiClient.get('/admin/dashboard', {
-          withCredentials: true,
-          headers: {
-            Authorization: `Bearer ${user.token}`
-          },
-        });
-        mapDashboardData(res.data);
-        setLoading(false);
-      } catch (err) {
-        console.error("Failed to fetch dashboard:", err);
-        setLoading(false);
-      }
-    };
->>>>>>> origin/main
 
     const fetchGameState = async () => {
       try {
@@ -220,28 +195,6 @@ const AdminDashboard = () => {
   // --- GAME CONTROLS ---
   const handleGameControl = async (action) => {
   // ...existing code...
-<<<<<<< HEAD
-=======
-  const handleResetGame = async () => {
-    setResetGameLoading(true);
-    setGameControlError("");
-    try {
-      await apiClient.post('/admin/game/reset', {}, {
-        withCredentials: true,
-        headers: {
-          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
-        },
-      });
-      setGameControlError("");
-      await fetchDashboard();
-    } catch (err) {
-      setGameControlError(`Failed to reset game: ${err.message}`);
-      console.error("Failed to reset game:", err);
-    } finally {
-      setResetGameLoading(false);
-    }
-  };
->>>>>>> origin/main
     setGameControlLoading(action);
     setGameControlError("");
     try {

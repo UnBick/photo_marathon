@@ -6,11 +6,7 @@ const Level = require('../models/Level');
 require('dotenv').config();
 
 // MongoDB connection string
-<<<<<<< HEAD
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/photo-marathon';
-=======
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://bitphotographicsociety_db_user:T2pwgtyajSgEU5Hh@cluster0.0gzgwrl.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
->>>>>>> origin/main
 
 // Admin data to seed
 const adminUsers = [
