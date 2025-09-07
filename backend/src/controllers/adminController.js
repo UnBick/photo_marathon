@@ -1,9 +1,221 @@
+// Initialize game state if none exists
+const initGameState = async (req, res) => {
+  try {
+    let gameState = await GameState.getCurrentState();
+    if (gameState) {
+      return res.status(200).json({ message: 'Game state already exists', gameState });
+    }
+    gameState = await GameState.create({ createdBy: req.user.id });
+    res.status(201).json({ message: 'Game state initialized', gameState });
+  } catch (error) {
+    res.status(500).json({ message: 'Error initializing game state', error: error.message });
+  }
+};
+// Reset game state to 'setup' so a new game can be started
+const resetGame = async (req, res) => {
+  try {
+    const gameState = await GameState.getCurrentState();
+    if (!gameState) {
+      return res.status(500).json({ message: 'No game state found' });
+    }
+    gameState.gameStatus = 'setup';
+    gameState.startTime = undefined;
+    gameState.endTime = undefined;
+    gameState.pauseStartTime = undefined;
+    gameState.totalPauseTime = 0;
+    gameState.finalDeclared = false;
+    gameState.winnerTeamId = undefined;
+    gameState.winnerTime = undefined;
+    gameState.winnerSubmissionId = undefined;
+    await gameState.save();
+
+  // Remove all level references from assignedLevels for all teams
+  // Remove all levels from all teams' assignedLevels (guaranteed)
+  await Team.updateMany({}, {
+    $set: {
+      assignedLevels: [],
+      completed: [],
+      currentIndex: 0,
+      finalUnlocked: false,
+      finalSubmitted: false,
+      isWinner: false,
+      totalTime: 0,
+      startTime: undefined,
+      finalSubmissionTime: undefined
+    }
+  });
+
+  // No need for $pull; $set: { assignedLevels: [] } is sufficient
+
+  // Delete all submissions for all levels
+  await Submission.deleteMany({});
+
+  // Randomly assign one level per unique order (excluding final) to each team
+  const levels = await Level.find({ isFinal: false, isActive: true }).lean();
+  if (levels.length > 0) {
+    // Group levels by order (exclude final)
+    const levelsByOrder = {};
+    for (const lvl of levels) {
+      if (!levelsByOrder[lvl.order]) levelsByOrder[lvl.order] = [];
+      levelsByOrder[lvl.order].push(lvl);
+    }
+    const uniqueOrders = Object.keys(levelsByOrder).map(Number).sort((a, b) => a - b);
+    const teams = await Team.find();
+    for (const team of teams) {
+      const assigned = [];
+      for (const order of uniqueOrders) {
+        const options = levelsByOrder[order];
+        if (options && options.length > 0) {
+          // Pick a random level for this order
+          const randomIdx = Math.floor(Math.random() * options.length);
+          assigned.push(options[randomIdx]._id);
+        }
+      }
+      team.assignedLevels = assigned;
+      team.currentIndex = 0;
+      team.completed = [];
+      team.finalUnlocked = false;
+      team.finalSubmitted = false;
+      team.isWinner = false;
+      team.totalTime = 0;
+      team.startTime = new Date(); // Set startTime for leaderboard timing
+      await team.save();
+    }
+  }
+
+  res.json({ message: 'Game state, team assignments, and submissions reset to setup and random levels assigned', gameState });
+  } catch (error) {
+    res.status(500).json({ message: 'Error resetting game', error: error.message });
+  }
+};
+// ...existing code...
+module.exports.resetGame = resetGame;
 const Team = require('../models/Team');
 const Level = require('../models/Level');
 const Submission = require('../models/Submission');
 const Admin = require('../models/Admin');
 const GameState = require('../models/GameState');
 const { calculateRanking } = require('../utils/rankingLogic');
+const path = require('path');
+const mongoose = require('mongoose');
+
+// Utility functions
+const toNum = (v, fallback) => (v == null ? fallback : Number(v));
+const isValidObjectId = (id) => mongoose.isValidObjectId(id);
+
+// CSV utility with injection protection
+const toCsv = (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return '';
+  const header = Object.keys(rows[0]);
+  const esc = v => {
+    if (v == null) return '';
+    const s = String(v);
+    // Prevent CSV injection by prefixing dangerous characters
+    const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+    return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  };
+  return [header.join(','), ...rows.map(r => header.map(k => esc(r[k])).join(','))].join('\n');
+};
+
+// Validation constants
+const ALLOWED_SORT_FIELDS = new Set(['teamName', 'username', 'firstName', 'lastName', 'totalTime', 'createdAt']);
+
+// Pure analytics functions (for reuse)
+async function fetchTeamAnalytics() {
+  return Team.aggregate([
+    { 
+      $lookup: { 
+        from: 'submissions', 
+        localField: '_id', 
+        foreignField: 'teamId', 
+        as: 'submissions' 
+      } 
+    },
+    {
+      $project: {
+        teamName: 1,
+        levelsCompleted: { $size: { $ifNull: ['$completed', []] } },
+        finalSubmitted: 1,
+        totalTime: 1,
+        totalSubmissions: { $size: '$submissions' },
+        avgScore: { $avg: '$submissions.similarityScore' }
+      }
+    },
+    { $sort: { levelsCompleted: -1, totalTime: 1 } }
+  ]);
+}
+
+async function fetchLevelAnalytics() {
+  return Level.aggregate([
+    { 
+      $lookup: { 
+        from: 'submissions', 
+        localField: '_id', 
+        foreignField: 'levelId', 
+        as: 'submissions' 
+      } 
+    },
+    {
+      $project: {
+        title: 1,
+        difficulty: 1,
+        order: 1,
+        totalSubmissions: { $size: '$submissions' },
+        completionRate: {
+          $cond: [
+            { $gt: [{ $size: '$submissions' }, 0] },
+            {
+              $multiply: [
+                {
+                  $divide: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: '$submissions',
+                          as: 's',
+                          cond: { $in: ['$$s.status', ['auto_approved', 'approved']] }
+                        }
+                      }
+                    },
+                    { $size: '$submissions' }
+                  ]
+                },
+                100
+              ]
+            },
+            0
+          ]
+        },
+        avgScore: { $avg: '$submissions.similarityScore' }
+      }
+    },
+    { $sort: { order: 1 } }
+  ]);
+}
+
+async function fetchSubmissionAnalytics() {
+  return Submission.aggregate([
+    { 
+      $lookup: { 
+        from: 'levels', 
+        localField: 'levelId', 
+        foreignField: '_id', 
+        as: 'level' 
+      } 
+    },
+    {
+      $group: {
+        _id: {
+          status: '$status',
+          difficulty: { $arrayElemAt: ['$level.difficulty', 0] }
+        },
+        count: { $sum: 1 },
+        avgScore: { $avg: '$similarityScore' }
+      }
+    },
+    { $sort: { '_id.status': 1, '_id.difficulty': 1 } }
+  ]);
+}
 
 // Admin dashboard and overview
 const getDashboard = async (req, res) => {
@@ -30,14 +242,26 @@ const getDashboard = async (req, res) => {
       .populate('teamId', 'teamName')
       .populate('levelId', 'title')
       .sort('-createdAt')
-      .limit(10);
+      .limit(10)
+      .lean();
 
-    const topTeams = await Team.find()
-      .select('teamName completed finalSubmitted totalTime')
-      .sort({ 'completed.length': -1, totalTime: 1 })
-      .limit(5);
+    // FIX: Use aggregation to properly sort by completed array length
+    const topTeams = await Team.aggregate([
+      {
+        $project: {
+          teamName: 1,
+          completed: 1,
+          finalSubmitted: 1,
+          totalTime: 1,
+          levelsCompleted: { $size: { $ifNull: ['$completed', []] } }
+        }
+      },
+      { $sort: { levelsCompleted: -1, totalTime: 1 } },
+      { $limit: 5 }
+    ]);
 
-    res.json({
+  console.log('[getDashboard] gameState:', gameState);
+  res.json({
       overview: {
         totalTeams,
         activeTeams,
@@ -55,7 +279,7 @@ const getDashboard = async (req, res) => {
       recentSubmissions,
       topTeams: topTeams.map(team => ({
         teamName: team.teamName,
-        levelsCompleted: team.completed.length,
+        levelsCompleted: team.levelsCompleted,
         finalSubmitted: team.finalSubmitted,
         totalTime: team.totalTime
       }))
@@ -69,13 +293,15 @@ const getDashboard = async (req, res) => {
 const getGameOverview = async (req, res) => {
   try {
     const gameState = await GameState.getCurrentState();
-    const teams = await Team.find().select('teamName completed finalSubmitted totalTime isWinner');
+    const teams = await Team.find()
+      .select('teamName completed finalSubmitted totalTime isWinner')
+      .lean();
     
     const overview = {
       gameState,
       teamStats: {
         total: teams.length,
-        active: teams.filter(t => t.completed.length > 0).length,
+        active: teams.filter(t => t.completed && t.completed.length > 0).length,
         completed: teams.filter(t => t.finalSubmitted).length,
         winners: teams.filter(t => t.isWinner).length
       },
@@ -104,7 +330,8 @@ const getGameOverview = async (req, res) => {
                           $size: {
                             $filter: {
                               input: '$submissions',
-                              cond: { $in: ['$$this.status', ['auto_approved', 'approved']] }
+                              as: 's',
+                              cond: { $in: ['$$s.status', ['auto_approved', 'approved']] }
                             }
                           }
                         },
@@ -131,7 +358,13 @@ const getGameOverview = async (req, res) => {
 // Team management
 const getAllTeams = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, sortBy = 'teamName', sortOrder = 'asc' } = req.query;
+    const pageNum = Math.max(1, Number(req.query.page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const search = req.query.search;
+    
+    // Input validation for sort field
+    const sortBy = ALLOWED_SORT_FIELDS.has(req.query.sortBy) ? req.query.sortBy : 'teamName';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
     
     const query = {};
     if (search) {
@@ -143,25 +376,25 @@ const getAllTeams = async (req, res) => {
       ];
     }
 
-    const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    const sortOptions = { [sortBy]: sortOrder };
 
     const teams = await Team.find(query)
       .select('-password')
       .sort(sortOptions)
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
+      .lean();
 
     const total = await Team.countDocuments(query);
 
     res.json({
       teams,
       pagination: {
-        currentPage: page * 1,
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
         totalTeams: total,
-        hasNext: page * 1 < Math.ceil(total / limit),
-        hasPrev: page > 1
+        hasNext: pageNum < Math.ceil(total / limitNum),
+        hasPrev: pageNum > 1
       }
     });
 
@@ -172,24 +405,31 @@ const getAllTeams = async (req, res) => {
 
 const getTeamDetails = async (req, res) => {
   try {
-    const team = await Team.findById(req.params.teamId).select('-password');
+    const { teamId } = req.params;
+    
+    if (!isValidObjectId(teamId)) {
+      return res.status(400).json({ message: 'Invalid team ID' });
+    }
+
+    const team = await Team.findById(teamId).select('-password').lean();
     if (!team) {
       return res.status(404).json({ message: 'Team not found' });
     }
 
     const submissions = await Submission.find({ teamId: team._id })
       .populate('levelId', 'title order difficulty')
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .lean();
 
     const assignedLevels = await Level.find({
       _id: { $in: team.assignedLevels }
-    }).sort('order');
+    }).sort('order').lean();
 
     res.json({
       team,
       submissions,
       assignedLevels,
-      progress: await team.getProgress()
+      progress: await Team.findById(teamId).then(t => t?.getProgress?.() || {})
     });
 
   } catch (error) {
@@ -200,6 +440,11 @@ const getTeamDetails = async (req, res) => {
 const updateTeam = async (req, res) => {
   try {
     const { teamId } = req.params;
+    
+    if (!isValidObjectId(teamId)) {
+      return res.status(400).json({ message: 'Invalid team ID' });
+    }
+
     const updates = req.body;
 
     // Remove sensitive fields that shouldn't be updated directly
@@ -231,6 +476,10 @@ const deleteTeam = async (req, res) => {
   try {
     const { teamId } = req.params;
     
+    if (!isValidObjectId(teamId)) {
+      return res.status(400).json({ message: 'Invalid team ID' });
+    }
+    
     // Check if team has submissions
     const submissionCount = await Submission.countDocuments({ teamId });
     if (submissionCount > 0) {
@@ -255,6 +504,11 @@ const deleteTeam = async (req, res) => {
 const resetTeamProgress = async (req, res) => {
   try {
     const { teamId } = req.params;
+    
+    if (!isValidObjectId(teamId)) {
+      return res.status(400).json({ message: 'Invalid team ID' });
+    }
+
     const team = await Team.findById(teamId);
     
     if (!team) {
@@ -294,6 +548,11 @@ const resetTeamProgress = async (req, res) => {
 const unlockTeamFinal = async (req, res) => {
   try {
     const { teamId } = req.params;
+    
+    if (!isValidObjectId(teamId)) {
+      return res.status(400).json({ message: 'Invalid team ID' });
+    }
+
     const team = await Team.findById(teamId);
     
     if (!team) {
@@ -320,7 +579,7 @@ const unlockTeamFinal = async (req, res) => {
 // Level management
 const getAllLevels = async (req, res) => {
   try {
-    const levels = await Level.find().sort('order');
+    const levels = await Level.find().sort('order').lean();
     res.json(levels);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching levels', error: error.message });
@@ -329,14 +588,21 @@ const getAllLevels = async (req, res) => {
 
 const getLevelDetails = async (req, res) => {
   try {
-    const level = await Level.findById(req.params.levelId);
+    const { levelId } = req.params;
+    
+    if (!isValidObjectId(levelId)) {
+      return res.status(400).json({ message: 'Invalid level ID' });
+    }
+
+    const level = await Level.findById(levelId).lean();
     if (!level) {
       return res.status(404).json({ message: 'Level not found' });
     }
 
     // Get teams assigned to this level
     const assignedTeams = await Team.find({ assignedLevels: level._id })
-      .select('teamName username');
+      .select('teamName username')
+      .lean();
 
     // Get submission stats for this level
     const submissionStats = await Submission.aggregate([
@@ -362,56 +628,65 @@ const getLevelDetails = async (req, res) => {
 };
 
 const createLevel = async (req, res) => {
+  // Debug log: print incoming data for every create level request
+  console.log('[createLevel] Incoming data:', {
+    body: req.body,
+    file: req.file
+  });
   try {
     const {
-      title,
-      description,
-      isFinal,
-      order,
-      difficulty,
-      location,
-      hints,
-      timeLimit,
-      maxAttempts,
-      points
+      title, description, isFinal, order, difficulty, location,
+      hints, timeLimit, maxAttempts, points, finalClue
     } = req.body;
 
+    if (!title || order == null) {
+      console.error('[createLevel] 400: Missing title or order', { title, order });
+      return res.status(400).json({ error: 'Title and order are required.' });
+    }
     if (!req.file) {
-      return res.status(400).json({ message: 'Level photo is required' });
+      console.error('[createLevel] 400: Missing photo file', { file: req.file, body: req.body });
+      return res.status(400).json({ error: 'Photo/image file is required.' });
     }
 
+    // Always convert isFinal to boolean
+    const isFinalBool = (isFinal === true || isFinal === 'true');
+
     // Check if this is a final level and if one already exists
-    if (isFinal) {
-      const existingFinalLevel = await Level.findOne({ isFinal: true });
-      if (existingFinalLevel) {
+    if (isFinalBool) {
+      const existingFinal = await Level.findOne({ isFinal: true }).lean();
+      if (existingFinal) {
         return res.status(400).json({ message: 'A final level already exists' });
       }
     }
 
-    const level = new Level({
-      title,
-      description,
-      photoUrl: req.file.path,
-      thumbnailUrl: req.file.path.replace('.jpg', '_thumb.jpg'),
-      isFinal: isFinal || false,
-      order: order || 0,
-      difficulty: difficulty || 'medium',
-      location,
-      hints: hints || [],
-      timeLimit: timeLimit || null,
-      maxAttempts: maxAttempts || 3,
-      points: points || 100,
-      phash: req.file.phash,
-      createdBy: req.user.id
+    // FIX: Safe thumbnail path generation
+    const fileName = req.file.filename;
+    const photoUrl = `/uploads/${fileName}`;
+    const thumbnailUrl = `/uploads/thumbnails/thumb_${fileName}`;
+
+    const level = await Level.create({
+  title,
+  description,
+  photoUrl,
+  thumbnailUrl,
+  isFinal: isFinalBool,
+  order: Number(order) || 0,
+  difficulty: difficulty || 'medium',
+  location,
+  hints: Array.isArray(hints) ? hints : (hints ? [hints] : []),
+  timeLimit: timeLimit ? Number(timeLimit) : null,
+  maxAttempts: maxAttempts != null ? Number(maxAttempts) : 3,
+  points: points != null ? Number(points) : 100,
+  phash: req.file.phash,
+  createdBy: req.user.id,
+  finalClue: finalClue || ''
     });
 
-    await level.save();
-
-    // Assign the new level to all existing teams if it's not a final level
-    if (!isFinal) {
+    // FIX: Use bulk operation for better performance
+    if (!level.isFinal) {
       await Team.updateMany(
-        {},
-        { $addToSet: { assignedLevels: level._id } } // Add level ID to assignedLevels array
+        { assignedLevels: { $ne: level._id } },
+        { $addToSet: { assignedLevels: level._id } }
       );
     }
 
@@ -421,13 +696,19 @@ const createLevel = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Error creating level', error: error.message });
+    console.error('[createLevel] Error:', error);
+    res.status(500).json({ error: 'Failed to create level', details: error.message });
   }
 };
 
 const updateLevel = async (req, res) => {
   try {
     const { levelId } = req.params;
+    
+    if (!isValidObjectId(levelId)) {
+      return res.status(400).json({ message: 'Invalid level ID' });
+    }
+
     const level = await Level.findById(levelId);
     
     if (!level) {
@@ -435,17 +716,23 @@ const updateLevel = async (req, res) => {
     }
 
     const updates = req.body;
+    // Only allow finalClue to be updated for final level
+    if (level.isFinal && typeof req.body.finalClue === 'string') {
+      updates.finalClue = req.body.finalClue;
+    }
     
     // Handle photo update if new photo is uploaded
     if (req.file) {
-      updates.photoUrl = req.file.path;
-      updates.thumbnailUrl = req.file.path.replace('.jpg', '_thumb.jpg');
+      const fileName = req.file.filename;
+      updates.imageUrl = `/level/uploads/${fileName}`;
+      updates.photoUrl = `/uploads/${fileName}`;
+      updates.thumbnailUrl = `/uploads/thumbnails/thumb_${fileName}`;
       updates.phash = req.file.phash;
     }
 
     // Check final level constraint
     if (updates.isFinal && !level.isFinal) {
-      const existingFinal = await Level.findOne({ isFinal: true, _id: { $ne: levelId } });
+      const existingFinal = await Level.findOne({ isFinal: true, _id: { $ne: levelId } }).lean();
       if (existingFinal) {
         return res.status(400).json({ message: 'A final level already exists' });
       }
@@ -470,14 +757,19 @@ const updateLevel = async (req, res) => {
 const deleteLevel = async (req, res) => {
   try {
     const { levelId } = req.params;
-    const level = await Level.findById(levelId);
+    
+    if (!isValidObjectId(levelId)) {
+      return res.status(400).json({ message: 'Invalid level ID' });
+    }
+
+    const level = await Level.findById(levelId).lean();
     
     if (!level) {
       return res.status(404).json({ message: 'Level not found' });
     }
 
     // Check if level is assigned to any teams
-    const teamsWithLevel = await Team.find({ assignedLevels: levelId });
+    const teamsWithLevel = await Team.find({ assignedLevels: levelId }).lean();
     if (teamsWithLevel.length > 0) {
       return res.status(400).json({ 
         message: 'Cannot delete level that is assigned to teams',
@@ -506,31 +798,41 @@ const deleteLevel = async (req, res) => {
 // Submission management
 const getAllSubmissions = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, teamId, levelId } = req.query;
+    const pageNum = Math.max(1, Number(req.query.page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const { status, teamId, levelId } = req.query;
     
     const query = {};
-    if (status) query.status = status;
-    if (teamId) query.teamId = teamId;
-    if (levelId) query.levelId = levelId;
+    if (status) {
+      // If status is 'pending', include both 'pending' and 'processing'
+      if (status === 'pending') {
+        query.status = { $in: ['pending', 'processing'] };
+      } else {
+        query.status = status;
+      }
+    }
+    if (teamId && isValidObjectId(teamId)) query.teamId = teamId;
+    if (levelId && isValidObjectId(levelId)) query.levelId = levelId;
 
     const submissions = await Submission.find(query)
       .populate('teamId', 'teamName')
       .populate('levelId', 'title order')
       .populate('approvedBy', 'username')
       .sort('-createdAt')
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum)
+      .lean();
 
     const total = await Submission.countDocuments(query);
 
     res.json({
       submissions,
       pagination: {
-        currentPage: page * 1,
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
         totalSubmissions: total,
-        hasNext: page * 1 < Math.ceil(total / limit),
-        hasPrev: page > 1
+        hasNext: pageNum < Math.ceil(total / limitNum),
+        hasPrev: pageNum > 1
       }
     });
 
@@ -541,10 +843,17 @@ const getAllSubmissions = async (req, res) => {
 
 const getSubmissionDetails = async (req, res) => {
   try {
-    const submission = await Submission.findById(req.params.submissionId)
+    const { submissionId } = req.params;
+    
+    if (!isValidObjectId(submissionId)) {
+      return res.status(400).json({ message: 'Invalid submission ID' });
+    }
+
+    const submission = await Submission.findById(submissionId)
       .populate('teamId', 'teamName username')
-      .populate('levelId', 'title order difficulty')
-      .populate('approvedBy', 'username');
+      .populate('levelId', 'title order difficulty thumbnailUrl photoUrl')
+      .populate('approvedBy', 'username')
+      .lean();
 
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });
@@ -560,6 +869,11 @@ const getSubmissionDetails = async (req, res) => {
 const approveSubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
+    
+    if (!isValidObjectId(submissionId)) {
+      return res.status(400).json({ message: 'Invalid submission ID' });
+    }
+
     const submission = await Submission.findById(submissionId);
     
     if (!submission) {
@@ -567,6 +881,32 @@ const approveSubmission = async (req, res) => {
     }
 
     await submission.approve(req.user.id);
+
+    // Mark level as completed for the team if not already completed
+    const Team = require('../models/Team');
+    const team = await Team.findById(submission.teamId);
+    if (team) {
+      const level = await require('../models/Level').findById(submission.levelId);
+      if (level && level.isFinal) {
+        // If this is the final level, mark finalSubmitted and set totalTime
+        team.finalSubmitted = true;
+        team.finalSubmissionTime = new Date();
+        // Add to completed array for leaderboard and time logic
+        team.completed.push({
+          levelId: level._id,
+          completedAt: team.finalSubmissionTime,
+          attempts: 1,
+          bestScore: submission.similarityScore,
+          timeTaken: team.completed.length > 0 ? Math.floor((team.finalSubmissionTime - new Date(team.completed[team.completed.length - 1].completedAt)) / 1000) : 0
+        });
+        if (team.startTime) {
+          team.totalTime = Math.floor((Date.now() - new Date(team.startTime).getTime()) / 1000);
+        }
+      } else {
+        team.completeLevel(submission.levelId, submission.similarityScore);
+      }
+      await team.save();
+    }
 
     res.json({
       message: 'Submission approved successfully',
@@ -582,6 +922,10 @@ const rejectSubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
     const { rejectionReason } = req.body;
+
+    if (!isValidObjectId(submissionId)) {
+      return res.status(400).json({ message: 'Invalid submission ID' });
+    }
 
     if (!rejectionReason) {
       return res.status(400).json({ message: 'Rejection reason is required' });
@@ -607,6 +951,11 @@ const rejectSubmission = async (req, res) => {
 const reprocessSubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
+    
+    if (!isValidObjectId(submissionId)) {
+      return res.status(400).json({ message: 'Invalid submission ID' });
+    }
+
     const submission = await Submission.findById(submissionId);
     
     if (!submission) {
@@ -618,22 +967,30 @@ const reprocessSubmission = async (req, res) => {
       return res.status(404).json({ message: 'Level not found' });
     }
 
-    // Re-verify submission
-    const verificationResult = await level.matchesImage(submission.fileUrl);
-    
-    if (verificationResult.matches) {
-      await submission.autoApprove();
-      res.json({
-        message: 'Submission auto-approved after reprocessing',
-        submission,
-        verificationResult
-      });
-    } else {
-      await submission.autoReject();
-      res.json({
-        message: 'Submission auto-rejected after reprocessing',
-        submission,
-        verificationResult
+    try {
+      // Re-verify submission
+      const verificationResult = await level.matchesImage(submission.fileUrl);
+      
+      if (verificationResult.matches) {
+        await submission.autoApprove();
+        res.json({
+          message: 'Submission auto-approved after reprocessing',
+          submission,
+          verificationResult
+        });
+      } else {
+        await submission.autoReject();
+        res.json({
+          message: 'Submission auto-rejected after reprocessing',
+          submission,
+          verificationResult
+        });
+      }
+    } catch (verificationError) {
+      console.error('[reprocessSubmission] Verification failed:', verificationError);
+      res.status(500).json({
+        message: 'Error during reprocessing verification',
+        error: verificationError.message
       });
     }
 
@@ -655,84 +1012,88 @@ const getGameState = async (req, res) => {
 const startGame = async (req, res) => {
   try {
     const gameState = await GameState.getCurrentState();
-    if (gameState && gameState.gameStatus === 'active') {
+    if (!gameState) {
+      console.error('[startGame] No gameState found');
+      return res.status(500).json({ message: 'No game state found' });
+    }
+    if (gameState.gameStatus === 'active') {
       return res.status(400).json({ message: 'Game is already active' });
     }
 
-    // Set game state to active
-    const updatedGameState = await GameState.findOneAndUpdate(
-      { _id: 'global' },
-      { gameStatus: 'active', startTime: new Date() },
-      { new: true, upsert: true }
-    );
-
-    // Fetch all active levels
-    const activeLevels = await Level.find({ isActive: true });
-    const levelIds = activeLevels.map(level => level._id);
-
-    // Assign levels to teams based on assignment mode
-    if (gameState.assignmentMode === 'fixed') {
-      await Team.updateMany(
-        {},
-        { $addToSet: { assignedLevels: { $each: levelIds } } } // Add all active levels to assignedLevels
-      );
-    } else if (gameState.assignmentMode === 'random') {
-      const teams = await Team.find();
-      for (const team of teams) {
-        const randomLevels = levelIds.sort(() => 0.5 - Math.random()).slice(0, gameState.maxLevels || levelIds.length);
-        team.assignedLevels = randomLevels;
-        await team.save();
-      }
+    const started = await gameState.startGame();
+    if (started) {
+      await gameState.save();
     }
-
-    res.json({
-      message: 'Game started successfully',
-      gameState: updatedGameState
-    });
+    res.json({ message: 'Game started successfully', gameState });
   } catch (error) {
-    res.status(500).json({ message: 'Error starting game', error: error.message });
+    console.error('[startGame] Error:', error);
+    res.status(500).json({ message: 'Error starting game', error: error.message, stack: error.stack });
   }
 };
 
 const pauseGame = async (req, res) => {
   try {
     const gameState = await GameState.getCurrentState();
+    if (!gameState) {
+      console.error('[pauseGame] No gameState found');
+      return res.status(500).json({ message: 'No game state found' });
+    }
     if (gameState.gameStatus !== 'active') {
       return res.status(400).json({ message: 'Game is not active' });
     }
 
-    await gameState.pauseGame();
+    const paused = await gameState.pauseGame();
+    if (paused) {
+      await gameState.save();
+    }
     res.json({ message: 'Game paused successfully', gameState });
   } catch (error) {
-    res.status(500).json({ message: 'Error pausing game', error: error.message });
+    console.error('[pauseGame] Error:', error);
+    res.status(500).json({ message: 'Error pausing game', error: error.message, stack: error.stack });
   }
 };
 
 const resumeGame = async (req, res) => {
   try {
     const gameState = await GameState.getCurrentState();
+    if (!gameState) {
+      console.error('[resumeGame] No gameState found');
+      return res.status(500).json({ message: 'No game state found' });
+    }
     if (gameState.gameStatus !== 'paused') {
       return res.status(400).json({ message: 'Game is not paused' });
     }
 
-    await gameState.resumeGame();
+    const resumed = await gameState.resumeGame();
+    if (resumed) {
+      await gameState.save();
+    }
     res.json({ message: 'Game resumed successfully', gameState });
   } catch (error) {
-    res.status(500).json({ message: 'Error resuming game', error: error.message });
+    console.error('[resumeGame] Error:', error);
+    res.status(500).json({ message: 'Error resuming game', error: error.message, stack: error.stack });
   }
 };
 
 const endGame = async (req, res) => {
   try {
     const gameState = await GameState.getCurrentState();
+    if (!gameState) {
+      console.error('[endGame] No gameState found');
+      return res.status(500).json({ message: 'No game state found' });
+    }
     if (gameState.gameStatus === 'ended') {
       return res.status(400).json({ message: 'Game is already ended' });
     }
 
-    await gameState.endGame();
+    const ended = await gameState.endGame();
+    if (ended) {
+      await gameState.save();
+    }
     res.json({ message: 'Game ended successfully', gameState });
   } catch (error) {
-    res.status(500).json({ message: 'Error ending game', error: error.message });
+    console.error('[endGame] Error:', error);
+    res.status(500).json({ message: 'Error ending game', error: error.message, stack: error.stack });
   }
 };
 
@@ -741,6 +1102,10 @@ const declareWinner = async (req, res) => {
     const { teamId } = req.body;
     if (!teamId) {
       return res.status(400).json({ message: 'Team ID is required' });
+    }
+
+    if (!isValidObjectId(teamId)) {
+      return res.status(400).json({ message: 'Invalid team ID' });
     }
 
     const team = await Team.findById(teamId);
@@ -754,6 +1119,11 @@ const declareWinner = async (req, res) => {
     }
 
     await gameState.declareWinner(teamId);
+    
+    // Also mark the team as winner for consistency
+    team.isWinner = true;
+    await team.save();
+
     res.json({ message: 'Winner declared successfully', winner: team.teamName });
   } catch (error) {
     res.status(500).json({ message: 'Error declaring winner', error: error.message });
@@ -770,21 +1140,25 @@ const getAdminLeaderboard = async (req, res) => {
   }
 };
 
+// FIX: Proper CSV export with injection protection
 const exportLeaderboard = async (req, res) => {
   try {
     const leaderboard = await calculateRanking();
-    
-    // Convert to CSV format
-    const csvData = leaderboard.map((entry, index) => {
-      return `${index + 1},${entry.teamName},${entry.levelsCompleted},${entry.finalSubmitted},${entry.totalTime},${entry.averageScore},${entry.rank}`;
-    });
-    
-    const csvHeader = 'Rank,Team Name,Levels Completed,Final Submitted,Total Time,Average Score,Position\n';
-    const csvContent = csvHeader + csvData.join('\n');
+
+    const rows = leaderboard.map((entry, idx) => ({
+      Rank: entry.rank ?? (idx + 1),
+      TeamName: entry.teamName,
+      LevelsCompleted: entry.levelsCompleted,
+      FinalSubmitted: entry.finalSubmitted,
+      TotalTime: entry.totalTime,
+      AverageScore: entry.averageScore
+    }));
+
+    const csv = toCsv(rows);
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="leaderboard.csv"');
-    res.send(csvContent);
+    res.send(csv);
 
   } catch (error) {
     res.status(500).json({ message: 'Error exporting leaderboard', error: error.message });
@@ -819,7 +1193,7 @@ const getAnalytics = async (req, res) => {
       Team.aggregate([
         {
           $project: {
-            levelsCompleted: { $size: '$completed' },
+            levelsCompleted: { $size: { $ifNull: ['$completed', []] } },
             finalSubmitted: '$finalSubmitted',
             totalTime: '$totalTime'
           }
@@ -858,7 +1232,8 @@ const getAnalytics = async (req, res) => {
                             $size: {
                               $filter: {
                                 input: '$submissions',
-                                cond: { $in: ['$$this.status', ['auto_approved', 'approved']] }
+                                as: 's',
+                                cond: { $in: ['$s.status', ['auto_approved', 'approved']] }
                               }
                             }
                           },
@@ -899,30 +1274,10 @@ const getAnalytics = async (req, res) => {
   }
 };
 
+// FIX: Use helper functions that return data instead of calling handlers
 const getTeamAnalytics = async (req, res) => {
   try {
-    const analytics = await Team.aggregate([
-      {
-        $lookup: {
-          from: 'submissions',
-          localField: '_id',
-          foreignField: 'teamId',
-          as: 'submissions'
-        }
-      },
-      {
-        $project: {
-          teamName: 1,
-          levelsCompleted: { $size: '$completed' },
-          finalSubmitted: 1,
-          totalTime: 1,
-          totalSubmissions: { $size: '$submissions' },
-          avgScore: { $avg: '$submissions.similarityScore' }
-        }
-      },
-      { $sort: { levelsCompleted: -1, totalTime: 1 } }
-    ]);
-
+    const analytics = await fetchTeamAnalytics();
     res.json(analytics);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching team analytics', error: error.message });
@@ -931,51 +1286,7 @@ const getTeamAnalytics = async (req, res) => {
 
 const getLevelAnalytics = async (req, res) => {
   try {
-    const analytics = await Level.aggregate([
-      {
-        $lookup: {
-          from: 'submissions',
-          localField: '_id',
-          foreignField: 'levelId',
-          as: 'submissions'
-        }
-      },
-      {
-        $project: {
-          title: 1,
-          difficulty: 1,
-          order: 1,
-          totalSubmissions: { $size: '$submissions' },
-          completionRate: {
-            $cond: {
-              if: { $gt: [{ $size: '$submissions' }, 0] },
-              then: {
-                $multiply: [
-                  {
-                    $divide: [
-                      {
-                        $size: {
-                          $filter: {
-                            input: '$submissions',
-                            cond: { $in: ['$$this.status', ['auto_approved', 'approved']] }
-                          }
-                        }
-                      },
-                      { $size: '$submissions' }
-                    ]
-                  },
-                  100
-                ]
-              },
-              else: 0
-            }
-          },
-          avgScore: { $avg: '$submissions.similarityScore' }
-        }
-      },
-      { $sort: { order: 1 } }
-    ]);
-
+    const analytics = await fetchLevelAnalytics();
     res.json(analytics);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching level analytics', error: error.message });
@@ -984,77 +1295,47 @@ const getLevelAnalytics = async (req, res) => {
 
 const getSubmissionAnalytics = async (req, res) => {
   try {
-    const analytics = await Submission.aggregate([
-      {
-        $lookup: {
-          from: 'teams',
-          localField: 'teamId',
-          foreignField: '_id',
-          as: 'team'
-        }
-      },
-      {
-        $lookup: {
-          from: 'levels',
-          localField: 'levelId',
-          foreignField: '_id',
-          as: 'level'
-        }
-      },
-      {
-        $group: {
-          _id: {
-            status: '$status',
-            difficulty: { $arrayElemAt: ['$level.difficulty', 0] }
-          },
-          count: { $sum: 1 },
-          avgScore: { $avg: '$similarityScore' }
-        }
-      },
-      { $sort: { '_id.status': 1, '_id.difficulty': 1 } }
-    ]);
-
+    const analytics = await fetchSubmissionAnalytics();
     res.json(analytics);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching submission analytics', error: error.message });
   }
 };
 
+// FIX: Proper report generation using helper functions
 const generateReports = async (req, res) => {
   try {
     const { reportType, format = 'json' } = req.query;
-    
+
     let reportData;
-    switch (reportType) {
-      case 'team_performance':
-        reportData = await getTeamAnalytics(req, res);
-        break;
-      case 'level_completion':
-        reportData = await getLevelAnalytics(req, res);
-        break;
-      case 'submission_analysis':
-        reportData = await getSubmissionAnalytics(req, res);
-        break;
-      default:
-        return res.status(400).json({ message: 'Invalid report type' });
+    if (reportType === 'team_performance') {
+      reportData = await fetchTeamAnalytics();
+    } else if (reportType === 'level_completion') {
+      reportData = await fetchLevelAnalytics();
+    } else if (reportType === 'submission_analysis') {
+      reportData = await fetchSubmissionAnalytics();
+    } else {
+      return res.status(400).json({ message: 'Invalid report type' });
     }
 
     if (format === 'csv') {
-      // Convert to CSV format
-      const csvData = reportData.map(entry => {
-        return Object.values(entry).join(',');
+      // Flatten nested _id objects for CSV export
+      const flattenedData = reportData.map(d => {
+        if (d._id && typeof d._id === 'object') {
+          // Flatten _id object into top-level fields
+          return { ...d, ...d._id, _id: undefined };
+        }
+        return d;
       });
-      
-      const csvHeader = Object.keys(reportData[0]).join(',') + '\n';
-      const csvContent = csvHeader + csvData.join('\n');
 
+      const csv = toCsv(flattenedData);
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="${reportType}_report.csv"`);
-      res.send(csvContent);
-    } else {
-      res.json(reportData);
+      return res.send(csv);
     }
 
+    // Default: return JSON
+    res.json(reportData);
   } catch (error) {
     res.status(500).json({ message: 'Error generating report', error: error.message });
   }
@@ -1065,15 +1346,15 @@ const getSystemSettings = async (req, res) => {
   try {
     const settings = {
       thresholds: {
-        phash: process.env.PHASH_THRESHOLD || 0.85,
-        orb: process.env.ORB_THRESHOLD || 0.7,
-        embedding: process.env.EMBEDDING_THRESHOLD || 0.8
+        phash: toNum(process.env.PHASH_THRESHOLD, 0.95),
+        orb: toNum(process.env.ORB_THRESHOLD, 0.8),
+        embedding: toNum(process.env.EMBEDDING_THRESHOLD, 0.9)
       },
       limits: {
         maxFileSize: process.env.MAX_FILE_SIZE || '10MB',
         maxAttempts: 3,
         rateLimitWindow: process.env.RATE_LIMIT_WINDOW || '15m',
-        rateLimitMax: process.env.RATE_LIMIT_MAX || 100
+        rateLimitMax: toNum(process.env.RATE_LIMIT_MAX, 100)
       },
       game: {
         assignmentMode: 'random', // or 'fixed'
@@ -1097,15 +1378,15 @@ const updateSystemSettings = async (req, res) => {
     
     const updatedSettings = {
       thresholds: {
-        phash: thresholds?.phash || process.env.PHASH_THRESHOLD || 0.85,
-        orb: thresholds?.orb || process.env.ORB_THRESHOLD || 0.7,
-        embedding: thresholds?.embedding || process.env.EMBEDDING_THRESHOLD || 0.8
+        phash: toNum(thresholds?.phash, toNum(process.env.PHASH_THRESHOLD, 0.85)),
+        orb: toNum(thresholds?.orb, toNum(process.env.ORB_THRESHOLD, 0.7)),
+        embedding: toNum(thresholds?.embedding, toNum(process.env.EMBEDDING_THRESHOLD, 0.8))
       },
       limits: {
         maxFileSize: limits?.maxFileSize || process.env.MAX_FILE_SIZE || '10MB',
-        maxAttempts: limits?.maxAttempts || 3,
+        maxAttempts: toNum(limits?.maxAttempts, 3),
         rateLimitWindow: limits?.rateLimitWindow || process.env.RATE_LIMIT_WINDOW || '15m',
-        rateLimitMax: limits?.rateLimitMax || 100
+        rateLimitMax: toNum(limits?.rateLimitMax, toNum(process.env.RATE_LIMIT_MAX, 100))
       },
       game: {
         assignmentMode: game?.assignmentMode || 'random',
@@ -1155,7 +1436,7 @@ const toggleMaintenanceMode = async (req, res) => {
 // Admin user management
 const getAllAdmins = async (req, res) => {
   try {
-    const admins = await Admin.find().select('-password').sort('username');
+    const admins = await Admin.find().select('-password').sort('username').lean();
     res.json(admins);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching admins', error: error.message });
@@ -1166,7 +1447,14 @@ const createAdmin = async (req, res) => {
   try {
     const { username, email, password, firstName, lastName, role, permissions } = req.body;
     
-    const existingAdmin = await Admin.findOne({ $or: [{ username }, { email }] });
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Username, email, and password are required' });
+    }
+    
+    const existingAdmin = await Admin.findOne({ 
+      $or: [{ username }, { email }] 
+    }).lean();
+    
     if (existingAdmin) {
       return res.status(400).json({ message: 'Username or email already exists' });
     }
@@ -1196,6 +1484,11 @@ const createAdmin = async (req, res) => {
 const updateAdmin = async (req, res) => {
   try {
     const { adminId } = req.params;
+    
+    if (!isValidObjectId(adminId)) {
+      return res.status(400).json({ message: 'Invalid admin ID' });
+    }
+    
     const updates = req.body;
     
     // Remove sensitive fields
@@ -1225,6 +1518,10 @@ const updateAdmin = async (req, res) => {
 const deleteAdmin = async (req, res) => {
   try {
     const { adminId } = req.params;
+    
+    if (!isValidObjectId(adminId)) {
+      return res.status(400).json({ message: 'Invalid admin ID' });
+    }
     
     if (adminId === req.user.id) {
       return res.status(400).json({ message: 'Cannot delete your own account' });
@@ -1282,5 +1579,7 @@ module.exports = {
   getAllAdmins,
   createAdmin,
   updateAdmin,
-  deleteAdmin
+  deleteAdmin,
+  resetGame,
+  initGameState
 };
