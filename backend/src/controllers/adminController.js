@@ -39,9 +39,11 @@ const resetGame = async (req, res) => {
       finalUnlocked: false,
       finalSubmitted: false,
       isWinner: false,
-      totalTime: 0,
-      startTime: undefined,
-      finalSubmissionTime: undefined
+      totalTime: 0
+    },
+    $unset: {
+      startTime: "",
+      finalSubmissionTime: ""
     }
   });
 

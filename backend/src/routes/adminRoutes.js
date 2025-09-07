@@ -43,6 +43,7 @@ router.post('/submissions/:submissionId/reprocess', authenticateAdmin, adminCont
 
 // Game state management
 router.get('/game-state', authenticateAdmin, adminController.getGameState);
+router.post('/game/init', authenticateAdmin, adminController.initGameState);
 router.post('/game/start', authenticateAdmin, checkAdminPermission('game_control'), adminController.startGame);
 router.post('/game/pause', authenticateAdmin, checkAdminPermission('game_control'), adminController.pauseGame);
 router.post('/game/resume', authenticateAdmin, checkAdminPermission('game_control'), adminController.resumeGame);
