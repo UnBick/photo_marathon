@@ -166,14 +166,14 @@ levelSchema.statics.getFinalLevel = function() {
 levelSchema.methods.matchesImage = function(submissionPhash, submissionDescriptors = null) {
   // Check main image
   const mainDistance = this.calculatePhashDistance(submissionPhash);
-  if (mainDistance <= parseInt(process.env.PHASH_THRESHOLD) || 8) {
+  if (mainDistance <= (parseInt(process.env.PHASH_THRESHOLD) || 8)) {
     return { matches: true, score: 1 - (mainDistance / 64), source: 'main' };
   }
 
   // Check alternative images
   for (let alt of this.alternativeImages) {
     const altDistance = this.calculatePhashDistance(submissionPhash, alt.phash);
-    if (altDistance <= parseInt(process.env.PHASH_THRESHOLD) || 8) {
+    if (altDistance <= (parseInt(process.env.PHASH_THRESHOLD) || 8)) {
       return { matches: true, score: 1 - (altDistance / 64), source: 'alternative' };
     }
   }
