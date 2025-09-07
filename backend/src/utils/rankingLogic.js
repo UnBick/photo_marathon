@@ -155,6 +155,8 @@ const calculateRanking = async () => {
     throw new Error('Failed to calculate team rankings');
   }
 
+};
+
 /**
  * Calculate rankings for a specific category or filter
  * @param {Object} filter - MongoDB filter for teams
@@ -402,7 +404,7 @@ const generateRankingReport = async () => {
       summary: {
         topPerformer: rankings[0] || null,
         averageCompletion: rankings.length > 0 
-          ? rankings.reduce((sum, t) => sum + t.levelsCompleted, 0) / rankings.length 
+          ? rankings.reduce((sum, t) => sum + t.completedLevels, 0) / rankings.length 
           : 0,
         teamsWithFinal: rankings.filter(t => t.finalSubmitted).length,
         winners: rankings.filter(t => t.isWinner).length
