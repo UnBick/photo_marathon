@@ -90,6 +90,58 @@ const resetGame = async (req, res) => {
     res.status(500).json({ message: 'Error resetting game', error: error.message });
   }
 };
+
+// Quick fix: Assign levels to teams that don't have any
+const assignLevelsToTeams = async (req, res) => {
+  try {
+    const activeLevels = await Level.find({ isActive: true, isFinal: false }).sort('order').lean();
+    if (activeLevels.length === 0) {
+      return res.status(400).json({ message: 'No active levels found' });
+    }
+
+    const teamsNeedingAssignment = await Team.find({ 
+      $or: [
+        { assignedLevels: { $exists: false } }, 
+        { assignedLevels: { $size: 0 } }
+      ] 
+    });
+
+    if (teamsNeedingAssignment.length === 0) {
+      return res.json({ message: 'All teams already have levels assigned' });
+    }
+
+    const gameState = await GameState.getCurrentState();
+    const levelIdsOrdered = activeLevels.map(l => l._id);
+    
+    for (const team of teamsNeedingAssignment) {
+      if (gameState.assignmentMode === 'random') {
+        // Shuffle the levels for random assignment
+        const shuffled = [...levelIdsOrdered];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        team.assignedLevels = shuffled;
+      } else {
+        // Fixed order assignment
+        team.assignedLevels = levelIdsOrdered;
+      }
+      team.currentIndex = 0;
+      if (!team.startTime) {
+        team.startTime = new Date();
+      }
+      await team.save();
+    }
+
+    res.json({ 
+      message: `Assigned levels to ${teamsNeedingAssignment.length} teams`,
+      teamsUpdated: teamsNeedingAssignment.length,
+      levelsAssigned: levelIdsOrdered.length
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error assigning levels to teams', error: error.message });
+  }
+};
 // ...existing code...
 module.exports.resetGame = resetGame;
 const Team = require('../models/Team');
@@ -1025,6 +1077,39 @@ const startGame = async (req, res) => {
     const started = await gameState.startGame();
     if (started) {
       await gameState.save();
+      
+      // Auto-assign levels to teams that don't have any yet
+      const activeLevels = await Level.find({ isActive: true, isFinal: false }).sort('order').lean();
+      if (activeLevels.length > 0) {
+        const teamsNeedingAssignment = await Team.find({ 
+          $or: [
+            { assignedLevels: { $exists: false } }, 
+            { assignedLevels: { $size: 0 } }
+          ] 
+        });
+        
+        if (teamsNeedingAssignment.length > 0) {
+          const levelIdsOrdered = activeLevels.map(l => l._id);
+          
+          for (const team of teamsNeedingAssignment) {
+            if (gameState.assignmentMode === 'random') {
+              // Shuffle the levels for random assignment
+              const shuffled = [...levelIdsOrdered];
+              for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+              }
+              team.assignedLevels = shuffled;
+            } else {
+              // Fixed order assignment
+              team.assignedLevels = levelIdsOrdered;
+            }
+            team.currentIndex = 0;
+            team.startTime = new Date();
+            await team.save();
+          }
+        }
+      }
     }
     res.json({ message: 'Game started successfully', gameState });
   } catch (error) {
@@ -1583,5 +1668,6 @@ module.exports = {
   updateAdmin,
   deleteAdmin,
   resetGame,
-  initGameState
+  initGameState,
+  assignLevelsToTeams
 };

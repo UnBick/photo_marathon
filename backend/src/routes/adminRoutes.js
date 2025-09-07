@@ -49,6 +49,7 @@ router.post('/game/pause', authenticateAdmin, checkAdminPermission('game_control
 router.post('/game/resume', authenticateAdmin, checkAdminPermission('game_control'), adminController.resumeGame);
 router.post('/game/end', authenticateAdmin, checkAdminPermission('game_control'), adminController.endGame);
 router.post('/game/reset', authenticateAdmin, checkAdminPermission('game_control'), adminController.resetGame);
+router.post('/game/assign-levels', authenticateAdmin, checkAdminPermission('game_control'), adminController.assignLevelsToTeams);
 router.post('/game/declare-winner', authenticateAdmin, checkAdminPermission('game_control'), adminController.declareWinner);
 
 // Leaderboard and rankings
