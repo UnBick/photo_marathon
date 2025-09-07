@@ -1,13 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+console.log(adminController); // Log to verify imported functions
 const { authenticateAdmin, checkAdminPermission } = require('../middleware/authMiddleware');
-const { upload, processImage, handleUploadErrors } = require('../middleware/uploadMiddleware');
-
-router.use(handleUploadErrors);
-
-router.post('/game/reset', authenticateAdmin, checkAdminPermission('game_control'), adminController.resetGame);
-
+const { upload, processImage } = require('../middleware/uploadMiddleware');
 
 // Admin dashboard and overview
 router.get('/dashboard', authenticateAdmin, adminController.getDashboard);
@@ -47,7 +43,6 @@ router.post('/submissions/:submissionId/reprocess', authenticateAdmin, adminCont
 
 // Game state management
 router.get('/game-state', authenticateAdmin, adminController.getGameState);
-router.post('/game/init', authenticateAdmin, checkAdminPermission('game_control'), adminController.initGameState);
 router.post('/game/start', authenticateAdmin, checkAdminPermission('game_control'), adminController.startGame);
 router.post('/game/pause', authenticateAdmin, checkAdminPermission('game_control'), adminController.pauseGame);
 router.post('/game/resume', authenticateAdmin, checkAdminPermission('game_control'), adminController.resumeGame);
@@ -78,6 +73,4 @@ router.post('/admins', authenticateAdmin, checkAdminPermission('admin_management
 router.put('/admins/:adminId', authenticateAdmin, checkAdminPermission('admin_management'), adminController.updateAdmin);
 router.delete('/admins/:adminId', authenticateAdmin, checkAdminPermission('admin_management'), adminController.deleteAdmin);
 
-// Attach Multer error handler after all routes
-router.use(handleUploadErrors);
 module.exports = router;

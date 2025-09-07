@@ -1105,7 +1105,7 @@ const updateSystemSettings = async (req, res) => {
         maxFileSize: limits?.maxFileSize || process.env.MAX_FILE_SIZE || '10MB',
         maxAttempts: limits?.maxAttempts || 3,
         rateLimitWindow: limits?.rateLimitWindow || process.env.RATE_LIMIT_WINDOW || '15m',
-        rateLimitMax: limits?.rateLimitMax || process.env.RATE_LIMIT_MAX || 100
+        rateLimitMax: limits?.rateLimitMax || 100
       },
       game: {
         assignmentMode: game?.assignmentMode || 'random',

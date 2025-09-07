@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Use VITE_API_BASE_URL for all API requests, fallback to '/api' if not set
 // In production behind a reverse proxy, the frontend should call same-origin '/api'
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ;
 
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
