@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Photo Marathon - A thrilling photo scavenger hunt game" />
+    <meta name="keywords" content="photo marathon, scavenger hunt, photography, game" />
+    <meta name="author" content="Photo Marathon Team" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://photo-marathon.com/" />
+    <meta property="og:title" content="Photo Marathon" />
+    <meta property="og:description" content="A thrilling photo scavenger hunt game" />
+    <meta property="og:image" content="/og-image.jpg" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://photo-marathon.com/" />
+    <meta property="twitter:title" content="Photo Marathon" />
+    <meta property="twitter:description" content="A thrilling photo scavenger hunt game" />
+    <meta property="twitter:image" content="/og-image.jpg" />
+    
+    <title>Photo Marathon</title>
+    
+    <!-- Preload fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Theme color -->
+    <meta name="theme-color" content="#3b82f6" />
+    
+    <!-- Apple touch icon -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Loading fallback -->
+    <noscript>
+      <div style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+        padding: 2rem;
+      ">
+        <div>
+          <h1 style="color: #1f2937; margin-bottom: 1rem;">Photo Marathon</h1>
+          <p style="color: #6b7280; max-width: 400px;">
+            This application requires JavaScript to run. Please enable JavaScript in your browser to continue.
+          </p>
+        </div>
+      </div>
+    </noscript>
+  </body>
+</html>

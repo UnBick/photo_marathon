@@ -1,0 +1,9 @@
+{
+  "name": "Photo Marathon",
+  "short_name": "PhotoMarathon",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "description": "Photo Marathon web app",
+  "icons": []
+}
