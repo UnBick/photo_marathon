@@ -39,11 +39,9 @@ const resetGame = async (req, res) => {
       finalUnlocked: false,
       finalSubmitted: false,
       isWinner: false,
-      totalTime: 0
-    },
-    $unset: {
-      startTime: "",
-      finalSubmissionTime: ""
+      totalTime: 0,
+      startTime: null,
+      finalSubmissionTime: null
     }
   });
 
@@ -73,15 +71,21 @@ const resetGame = async (req, res) => {
           assigned.push(options[randomIdx]._id);
         }
       }
-      team.assignedLevels = assigned;
-      team.currentIndex = 0;
-      team.completed = [];
-      team.finalUnlocked = false;
-      team.finalSubmitted = false;
-      team.isWinner = false;
-      team.totalTime = 0;
-      team.startTime = new Date(); // Set startTime for leaderboard timing
-      await team.save();
+      await Team.updateOne(
+        { _id: team._id },
+        {
+          $set: {
+            assignedLevels: assigned,
+            currentIndex: 0,
+            completed: [],
+            finalUnlocked: false,
+            finalSubmitted: false,
+            isWinner: false,
+            totalTime: 0,
+            startTime: new Date()
+          }
+        }
+      );
     }
   }
 
@@ -126,11 +130,16 @@ const assignLevelsToTeams = async (req, res) => {
         // Fixed order assignment
         team.assignedLevels = levelIdsOrdered;
       }
-      team.currentIndex = 0;
-      if (!team.startTime) {
-        team.startTime = new Date();
-      }
-      await team.save();
+      await Team.updateOne(
+        { _id: team._id },
+        {
+          $set: {
+            assignedLevels: team.assignedLevels,
+            currentIndex: 0,
+            startTime: team.startTime || new Date()
+          }
+        }
+      );
     }
 
     res.json({ 
@@ -1104,9 +1113,16 @@ const startGame = async (req, res) => {
               // Fixed order assignment
               team.assignedLevels = levelIdsOrdered;
             }
-            team.currentIndex = 0;
-            team.startTime = new Date();
-            await team.save();
+            await Team.updateOne(
+              { _id: team._id },
+              {
+                $set: {
+                  assignedLevels: team.assignedLevels,
+                  currentIndex: 0,
+                  startTime: new Date()
+                }
+              }
+            );
           }
         }
       }
