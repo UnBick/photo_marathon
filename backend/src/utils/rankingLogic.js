@@ -152,6 +152,11 @@ const calculateRanking = async () => {
 
   } catch (error) {
     console.error('Error calculating rankings:', error);
+<<<<<<< HEAD
+=======
+  throw new Error('Failed to calculate team rankings');
+}
+>>>>>>> origin/main
     throw new Error('Failed to calculate team rankings');
   }
 
@@ -270,7 +275,10 @@ const calculateTeamStats = async (teamId) => {
     });
 
     // Calculate time efficiency
+<<<<<<< HEAD
     const totalTime = team.totalTime || 0;
+=======
+>>>>>>> origin/main
     const averageTimePerLevel = completedLevels > 0 ? totalTime / completedLevels : 0;
 
     return {
@@ -297,7 +305,11 @@ const calculateTeamStats = async (teamId) => {
       progress: {
         currentLevel: team.completed.length + 1,
         nextMilestone: Math.ceil(completionRate / 25) * 25, // Next 25% milestone
+<<<<<<< HEAD
         estimatedCompletion: totalTime > 0 && completionRate > 0 ? (totalTime / completionRate) * 100 : null
+=======
+        estimatedCompletion: totalTime > 0 ? (totalTime / completionRate) * 100 : null
+>>>>>>> origin/main
       }
     };
 

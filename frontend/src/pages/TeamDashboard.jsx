@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import PhotoCard from '../components/PhotoCard';
+<<<<<<< HEAD
 import { formatGameTime, formatDate } from '../utils/formatDate';
+=======
+import { formatGameTime } from '../utils/formatDate';
+>>>>>>> origin/main
 
 const TeamDashboard = () => {
   const { user } = useAuth();
@@ -464,10 +468,18 @@ const TeamDashboard = () => {
                       const submittedAt = submission.submittedAt || submission.createdAt;
                       // Use formatDate util if available
                       let formattedDate = 'N/A';
+<<<<<<< HEAD
                       if (submittedAt) {
                         try {
                           formattedDate = formatDate(submittedAt);
                         } catch (e) {
+=======
+                      try {
+                        // eslint-disable-next-line
+                        formattedDate = require('../utils/formatDate').formatDate(submittedAt);
+                      } catch (e) {
+                        if (submittedAt) {
+>>>>>>> origin/main
                           formattedDate = new Date(submittedAt).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                           });

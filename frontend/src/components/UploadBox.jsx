@@ -4,6 +4,7 @@ import { teamService } from '../services/teamService';
 const UploadBox = ({ 
   onUpload, 
   onError, 
+<<<<<<< HEAD
   // Support both maxSize and maxFileSize props
   maxSize: maxSizeProp,
   maxFileSize,
@@ -18,6 +19,13 @@ const UploadBox = ({
   disabled = false,
   // External submitting state to disable UI
   isSubmitting = false,
+=======
+  maxSize = 10 * 1024 * 1024, // 10MB
+  acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'],
+  showPreview = true,
+  className = '',
+  disabled = false
+>>>>>>> origin/main
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -29,9 +37,12 @@ const UploadBox = ({
   const fileInputRef = useRef(null);
   const dropZoneRef = useRef(null);
 
+<<<<<<< HEAD
   const maxSize = typeof maxSizeProp === 'number' ? maxSizeProp : (typeof maxFileSize === 'number' ? maxFileSize : 10 * 1024 * 1024);
   const acceptedTypes = Array.isArray(acceptedTypesProp) ? acceptedTypesProp : (Array.isArray(acceptedFileTypes) ? acceptedFileTypes : ['image/jpeg', 'image/png', 'image/webp']);
 
+=======
+>>>>>>> origin/main
   const validateFile = useCallback(async (file) => {
     const errors = [];
 
@@ -49,6 +60,7 @@ const UploadBox = ({
     // Check dimensions (optional)
     try {
       const dimensions = await getImageDimensions(file);
+<<<<<<< HEAD
       // Default minimum safeguard
       if (dimensions.width < 100 || dimensions.height < 100) {
         errors.push('Image dimensions must be at least 100x100 pixels');
@@ -63,12 +75,21 @@ const UploadBox = ({
           errors.push(`Image must be at most ${maxDimensions.width || '∞'}x${maxDimensions.height || '∞'} pixels`);
         }
       }
+=======
+      if (dimensions.width < 100 || dimensions.height < 100) {
+        errors.push('Image dimensions must be at least 100x100 pixels');
+      }
+>>>>>>> origin/main
     } catch (error) {
       errors.push('Could not read image dimensions');
     }
 
     return errors;
+<<<<<<< HEAD
   }, [acceptedTypes, maxSize, minDimensions, maxDimensions]);
+=======
+  }, [acceptedTypes, maxSize]);
+>>>>>>> origin/main
 
   const getImageDimensions = (file) => {
     return new Promise((resolve, reject) => {
@@ -139,10 +160,17 @@ const UploadBox = ({
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
+<<<<<<< HEAD
     if (!disabled && !isSubmitting) {
       setIsDragOver(true);
     }
   }, [disabled, isSubmitting]);
+=======
+    if (!disabled) {
+      setIsDragOver(true);
+    }
+  }, [disabled]);
+>>>>>>> origin/main
 
   const handleDragLeave = useCallback((e) => {
     e.preventDefault();
@@ -153,13 +181,21 @@ const UploadBox = ({
     e.preventDefault();
     setIsDragOver(false);
     
+<<<<<<< HEAD
     if (disabled || isSubmitting) return;
+=======
+    if (disabled) return;
+>>>>>>> origin/main
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
       handleFileSelect(files[0]);
     }
+<<<<<<< HEAD
   }, [disabled, isSubmitting, handleFileSelect]);
+=======
+  }, [disabled, handleFileSelect]);
+>>>>>>> origin/main
 
   const handleFileInputChange = (e) => {
     const file = e.target.files[0];
@@ -169,7 +205,11 @@ const UploadBox = ({
   };
 
   const handleBrowseClick = () => {
+<<<<<<< HEAD
     if (!disabled && !isSubmitting) {
+=======
+    if (!disabled) {
+>>>>>>> origin/main
       fileInputRef.current?.click();
     }
   };
@@ -202,7 +242,11 @@ const UploadBox = ({
         isDragOver
           ? 'border-blue-400 bg-blue-50'
           : 'border-gray-300 hover:border-gray-400'
+<<<<<<< HEAD
       } ${(disabled || isSubmitting) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+=======
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+>>>>>>> origin/main
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -321,10 +365,17 @@ const UploadBox = ({
         <button
           type="button"
           onClick={() => handleUpload()}
+<<<<<<< HEAD
           disabled={isUploading || disabled || isSubmitting}
           className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
         >
           {isUploading ? 'Uploading...' : (isSubmitting ? 'Submitting...' : 'Upload Photo')}
+=======
+          disabled={isUploading || disabled}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
+        >
+          {isUploading ? 'Uploading...' : 'Upload Photo'}
+>>>>>>> origin/main
         </button>
       </div>
     );
@@ -338,7 +389,11 @@ const UploadBox = ({
         accept={acceptedTypes.join(',')}
         onChange={handleFileInputChange}
         className="hidden"
+<<<<<<< HEAD
         disabled={disabled || isSubmitting}
+=======
+        disabled={disabled}
+>>>>>>> origin/main
       />
       
       {renderDropZone()}

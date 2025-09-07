@@ -21,10 +21,13 @@ const adminRoutes = require('./routes/adminRoutes');
 const app = express();
 const server = createServer(app);
 
+<<<<<<< HEAD
 // Trust proxy headers (needed behind load balancers/CDNs)
 // Ensures correct protocol and IP detection for cookies, redirects, and CORS
 app.set('trust proxy', 1);
 
+=======
+>>>>>>> origin/main
 console.log('🔗 Allowed CORS origins:', allowedOrigins);
 
 // Enhanced Socket.IO server configuration with better authentication
@@ -117,6 +120,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "blob:"],
+<<<<<<< HEAD
       connectSrc: (() => {
         const envOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
           .split(',')
@@ -132,6 +136,16 @@ app.use(helmet({
         ];
         return origins;
       })()
+=======
+      connectSrc: [
+        "'self'", 
+        "ws:", 
+        "wss:", 
+        "https:", // Allow HTTPS for Socket.IO polling fallback
+        "https://photo-marathon-wbbr.vercel.app",
+        ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+      ]
+>>>>>>> origin/main
     }
   }
 }));

@@ -60,9 +60,15 @@ const AdminSubmissionDetails = () => {
               src={(() => {
                 let src = submission.fileUrl || submission.photoUrl;
                 if (!src) return 'https://via.placeholder.com/300x300?text=No+Photo';
+<<<<<<< HEAD
                 // Normalize to /uploads/<filename>
                 src = src.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
                 return `/uploads/${src}`;
+=======
+                // Remove any leading uploads/ or /uploads/
+                src = src.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
+                return `/${src}`;
+>>>>>>> origin/main
               })()}
               alt="Submitted by team"
               className="w-full max-w-xs rounded-lg border mb-2"
@@ -85,7 +91,11 @@ const AdminSubmissionDetails = () => {
                   src = src.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
                   // Remove _thumb if present
                   src = src.replace(/_thumb(?=\.[a-zA-Z0-9]+$)/, '');
+<<<<<<< HEAD
                   return `/uploads/${src}`;
+=======
+                  return `/${src}`;
+>>>>>>> origin/main
                 })()}
                 alt={level.title}
                 className="w-full max-w-xs rounded-lg border mb-2"

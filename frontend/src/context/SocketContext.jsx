@@ -2,11 +2,16 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { io } from "socket.io-client";
 import { useAuth } from '../context/AuthContext';
 
+<<<<<<< HEAD
 // Derive Socket URL:
 // - If VITE_SOCKET_URL is set, use it
 // - Else, use same-origin (window.location.origin) so it never points to the frontend host accidentally
 //   when deployed behind a reverse proxy that forwards /socket.io to backend
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+=======
+// Use environment variable with fallback
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "https://photo-marathon.onrender.com";
+>>>>>>> origin/main
 
 const SocketContext = createContext();
 

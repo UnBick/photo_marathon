@@ -2,6 +2,7 @@
 const cors = require('cors');
 
 // Define allowed origins
+<<<<<<< HEAD
 // Supports comma-separated list via CORS_ALLOWED_ORIGINS env
 const envAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
   .split(',')
@@ -18,6 +19,15 @@ const defaultLocalOrigins = [
 const allowedOrigins = envAllowedOrigins.length || process.env.FRONTEND_URL
   ? [process.env.FRONTEND_URL, ...envAllowedOrigins].filter(Boolean)
   : defaultLocalOrigins;
+=======
+const allowedOrigins = [
+  'https://photo-marathon-wbbr.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  process.env.FRONTEND_URL
+].filter(Boolean); // Remove undefined values
+>>>>>>> origin/main
 
 console.log('CORS Middleware - Allowed origins:', allowedOrigins);
 
