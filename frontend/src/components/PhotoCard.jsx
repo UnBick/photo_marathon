@@ -179,11 +179,7 @@ const PhotoCard = ({
         <div className="flex-shrink-0">
           {isCurrent ? (
             <Link
-<<<<<<< HEAD
               to={`/level/${level._id}`}
-=======
-              to={`/${level._id}`}
->>>>>>> origin/main
               className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
               Play Now
