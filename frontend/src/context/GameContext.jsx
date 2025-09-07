@@ -123,10 +123,13 @@ export const GameProvider = ({ children }) => {
         teamService.getTeamSubmissions()
       ]);
 
-      const currentLevel = assignedLevels.find(level => {
+      let currentLevel = assignedLevels.find(level => {
         const levelIdStr = String(level._id);
         return !progress.completedLevels.some(completed => String(completed.levelId) === levelIdStr);
       });
+      if (!currentLevel && Array.isArray(assignedLevels) && assignedLevels.length > 0) {
+        currentLevel = assignedLevels[0];
+      }
 
       dispatch({
         type: 'GAME_LOADED',
